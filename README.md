@@ -15,6 +15,7 @@ rastreáveis. Dado ausente é mostrado como ausente — nunca como zero. Nada é
 | Demografia | População (censos 2000/2010/2022 + estimativas), área, densidade, crescimento; urbanização e cor ou raça (censos); índice de envelhecimento, idade mediana e razão de sexo (Censo 2022); nascimentos, óbitos e taxas brutas (Registro Civil, 2003+) |
 | Agropecuária | Valor da produção e área colhida das lavouras, com soja, milho, cana e café (PAM, 1995+); rebanho bovino, leite e valor da produção animal (PPM, 1995+) |
 | Trabalho e renda | Unidades locais, pessoal ocupado, assalariados, massa salarial e salário médio por município (CEMPRE, 2006+); desocupação, Gini e renda domiciliar per capita por UF (PNAD Contínua, 2012+) |
+| Finanças municipais | Receita total, corrente e tributária, IPTU, ISS, ITBI, FPM e transferências; despesa total, com pessoal, investimentos, saúde e educação; por habitante e em proporções (SICONFI/Tesouro, 2014+, só por município) |
 | Educação e saneamento | Taxa de alfabetização e domicílios com água por rede, esgotamento por rede e lixo coletado (Censo 2022) |
 | Sistema financeiro territorial | Crédito (total, empréstimos, financiamentos, rural, imobiliário), depósitos (à vista, poupança, a prazo), agências — ESTBAN, posição de dezembro, **1994–2025**; ICR, crédito e depósitos per capita e sobre o PIB |
 | Cooperativas de crédito | Postos de atendimento por município (cadastro do BCB, 2016–2025) e carteira de crédito por UF do tomador, com a participação das cooperativas (SCR.data, 2012–2025) |
@@ -22,10 +23,10 @@ rastreáveis. Dado ausente é mostrado como ausente — nunca como zero. Nada é
 | Patrimônio | Condição de ocupação dos domicílios (Censos 2010 e 2022), estabelecimentos agropecuários e Gini fundiário estimado (Censo Agro 2017) |
 | Ferramentas | **Explorar** (mapa coroplético com escala contínua ou em classes, escala divergente com ponto central, ranking em barras, variação entre dois períodos, dois mapas sincronizados; selecionar um território abre o perfil, dois ou mais abrem a comparação); séries históricas; laboratório (dispersão, Pearson/Spearman, regressão, distribuição e desigualdade, rankings, grupos); construtor de indicadores com validação de unidades; pesquisa avançada; exportação CSV/XLSX/JSON/PNG/SVG com metadados |
 
-São 111 indicadores com dados (75 observados nas fontes, 35 derivados por fórmula, 1 estimado) e cerca de 5,0 milhões de observações.
+São 122 indicadores com dados (80 observados nas fontes, 41 derivados por fórmula, 1 estimado) e cerca de 5,2 milhões de observações.
 
-**Catalogados sem dados (planejados):** Pix por município e bens e direitos do IRPF.
-Saúde, finanças públicas, meio ambiente e política seguem sem dados: constam do catálogo de fontes como planejadas e não
+**Catalogados sem dados (planejados):** bens e direitos do IRPF.
+Saúde, meio ambiente e política seguem sem dados: constam do catálogo de fontes como planejadas e não
 exibem nenhum número. Trabalho e renda, educação e habitação têm cobertura parcial, só com fontes do IBGE.
 
 ## Arquitetura
@@ -35,7 +36,7 @@ atlas-brasil/
 ├── backend/                 Python 3.12+ · FastAPI · SQLAlchemy · Polars
 │   ├── atlas/
 │   │   ├── catalog/         catálogos versionados em YAML: fontes, bases, unidades, metodologias, indicadores
-│   │   ├── connectors/      clientes das fontes oficiais (IBGE Localidades/Malhas/SIDRA/Biblioteca; BCB SGS, ESTBAN, postos e SCR.data)
+│   │   ├── connectors/      clientes das fontes oficiais (IBGE Localidades/Malhas/SIDRA/Biblioteca; BCB SGS, ESTBAN, postos, SCR.data e Pix; Tesouro SICONFI)
 │   │   ├── pipelines/       cargas: territórios, emancipações, PIB, população, domicílios, censo agro, ESTBAN, cooperativas, SCR, SGS, agregação
 │   │   ├── stats/           motor de fórmulas (unidades, ausências, deflacionamento) e estatísticas
 │   │   ├── api/             rotas: catálogo, dados (mapa, séries, perfis, exportação) e laboratório
@@ -43,7 +44,7 @@ atlas-brasil/
 │   │   ├── store.py         gravação versionada de observações + registro de cargas
 │   │   └── cli.py           migrate · seed · ingest · status
 │   ├── migrations/          Alembic (0001 esquema, 0002 geometria PostGIS)
-│   └── tests/               pytest (40 testes)
+│   └── tests/               pytest (48 testes)
 ├── frontend/                Next.js 16 · React 19 · TypeScript · Tailwind 4 · MapLibre GL · ECharts
 │   └── src/{app,views,components,lib}
 ├── data/                    (não versionado) banco SQLite local, cache bruto das fontes, malhas
@@ -115,6 +116,8 @@ python -m atlas.cli ingest censo_agro       # SIDRA 6754 + Gini fundiário
 python -m atlas.cli ingest estban --inicio 2024   # arquivos de dezembro do ESTBAN
 python -m atlas.cli ingest cooperativas     # postos de atendimento de cooperativas (dezembro, 2016+)
 python -m atlas.cli ingest scr              # carteira de crédito por UF e tipo de instituição (dezembro, 2012+)
+python -m atlas.cli ingest pix              # Pix por município: totais anuais (2021+)
+python -m atlas.cli ingest siconfi          # finanças municipais (DCA 2014+); horas de carga, retomável
 python -m atlas.cli ingest agregacao        # somas para regiões imediatas e intermediárias
 python -m atlas.cli status                  # contagens por indicador e últimas cargas
 ```
@@ -158,6 +161,11 @@ docker compose exec api python -m atlas.cli ingest all
 - **Registro Civil**: as tabelas de nascimentos e óbitos respondem devagar no servidor do IBGE (cerca de um minuto por ano); a
   carga completa leva uns 40 minutos. Os números dependem do registro em cartório e têm sub-registro.
 - **CEMPRE**: troca de tabela em 2022 (salto de 55 para 63 milhões de pessoas ocupadas); cobre só organizações formais.
+- **Pix**: valores anuais de 2021 a 2025 (soma de 12 meses), por município do cadastro do pagador ou do recebedor, não pelo local da
+  compra. Mede pagamentos brutos, não renda. Os totais não foram conferidos com o total nacional divulgado pelo BCB.
+- **Finanças municipais (SICONFI)**: valores declarados pelas prefeituras, sem auditoria, com erros de classificação e declarações
+  incompletas. Só por município (nem todos entregam todo ano, então não há totais de UF ou do país). A API responde um município por
+  consulta: a série completa leva horas, mas a carga retoma de onde parou.
 - **PNAD Contínua**: só Brasil, regiões e UFs; é amostral e o Atlas não exibe o erro de amostragem.
 - **Participações** (setoriais, de crédito, de soja): onde a fonte traz parcela negativa ou maior que o total, o valor fica ausente.
 - **PIB real municipal** não existe na fonte; a opção "valores reais" aplica o IPCA nacional.
@@ -178,8 +186,8 @@ docker compose exec api python -m atlas.cli ingest all
 
 ## Próximos passos (roadmap)
 
-1. Pix por município (BCB); série mensal completa do ESTBAN; conferência manual das origens das emancipações.
-2. Finanças públicas municipais (SICONFI), emprego formal (RAIS/CAGED) e saúde (DATASUS).
+1. Série mensal completa do ESTBAN; conferência manual das origens das emancipações. (Pix por município: feito.)
+2. Emprego formal (RAIS/CAGED) e saúde (DATASUS). (Finanças municipais do SICONFI: feito.)
 3. Dimensão eleitoral (TSE) com documentação de mudanças partidárias.
 4. Áreas mínimas comparáveis.
 5. Modelos em painel e autocorrelação espacial (Moran) no laboratório.

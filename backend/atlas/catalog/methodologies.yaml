@@ -23,6 +23,8 @@ units:
   - {id: por_mil, label: "por mil hab.", dims: {}}
   - {id: unidades_locais, label: "unidades locais", dims: {ul: 1}}
   - {id: brl_ha, label: "R$ por hectare", dims: {BRL: 1, ha: -1}}
+  - {id: transacoes, label: "transações", dims: {transacao: 1}}
+  - {id: brl_transacao, label: "R$ por transação", dims: {BRL: 1, transacao: -1}}
   - {id: brl_trab, label: "R$ por assalariado", dims: {BRL: 1, pessoa: -1}}
 
 methodologies:
@@ -223,6 +225,50 @@ methodologies:
 
       Depósitos em cooperativas por território continuam sem fonte pública.
 
+
+  - id: pix
+    title: Pix por município
+    body: |
+      Fonte: estatísticas do Pix em dados abertos do Banco Central (`TransacoesPixPorMunicipio`), mensais,
+      desde novembro de 2020.
+
+      - **Município**: é o do cadastro do usuário (pagador ou recebedor) na instituição em que tem conta,
+        não o lugar onde a compra aconteceu. Empresas recebem no município do seu cadastro.
+      - **Anual**: o Atlas soma os 12 meses. Anos incompletos (2020, com dois meses, e o ano corrente) não
+        são carregados, para a soma parcial não parecer queda. Município ausente em algum mês fica sem valor
+        no ano; os totais de região, UF e Brasil somam todos os meses publicados, inclusive os desses municípios.
+      - **Pagador × recebedor**: o valor pago e o valor recebido de um mesmo município diferem; no país a
+        soma dos dois lados é a mesma.
+      - **Não é renda nem consumo**: inclui transferências entre contas da mesma pessoa, pagamentos entre
+        empresas e o mesmo dinheiro circulando várias vezes. Serve para comparar intensidade de uso entre
+        territórios, não para medir atividade econômica em reais.
+      - **Pessoas pagadoras**: contagem de dezembro, só por município; não é somada entre municípios.
+      - Códigos de município fora da malha do IBGE (quando existirem) ficam fora dos totais e são
+        registrados no histórico de cargas.
+
+  - id: siconfi
+    title: Finanças municipais (SICONFI)
+    body: |
+      Fonte: Declaração de Contas Anuais (DCA) que cada prefeitura envia ao Tesouro Nacional pelo SICONFI,
+      exercícios de 2014 em diante.
+
+      - **Dado declarado, não auditado.** O Tesouro publica o que o município informou. Há declarações com
+        contas classificadas no lugar errado, totais incompletos e municípios que não entregaram: nesses
+        casos o valor fica ausente (sem declaração) ou reproduz o que foi declarado.
+      - **Receitas** (Anexo I-C): receita bruta realizada **menos as deduções** (principalmente os 20% das
+        transferências destinados ao FUNDEB). O total inclui receitas intraorçamentárias; receita corrente,
+        tributária e transferências não incluem.
+      - **Despesas** (Anexos I-D e I-E): despesa **empenhada** no exercício, não a paga. O total inclui
+        despesas intraorçamentárias.
+      - **Mudança do plano de contas.** Os códigos das contas mudaram em 2018 e em 2022. Os grandes grupos
+        são localizados pela posição no plano (estável); IPTU, ISS, ITBI e FPM, pelo nome da conta, somando
+        apenas contas que não tenham uma conta-mãe também encontrada.
+      - **Conta ausente não é zero.** Se a declaração não traz a conta (por exemplo, ITBI), o Atlas registra
+        ausência, embora em muitos casos signifique que nada foi arrecadado.
+      - **Só por município.** Como nem todos entregam a declaração todos os anos, o Atlas não soma os
+        municípios para formar totais de estado ou do país.
+      - As proporções da despesa com saúde, educação e pessoal **não são** os índices legais (mínimos
+        constitucionais e limite da Lei de Responsabilidade Fiscal), que têm bases de cálculo próprias.
 
   - id: agropecuaria
     title: Produção agrícola e pecuária municipal (PAM e PPM)

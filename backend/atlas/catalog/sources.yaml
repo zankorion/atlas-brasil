@@ -202,7 +202,10 @@ datasets:
     name: Estatísticas do Pix por município
     endpoint: https://olinda.bcb.gov.br/olinda/servico/Pix_DadosAbertos/versao/v1/aplicacao
     access: api
-    status: planejado
+    status: disponivel
+    notes: >
+      Valores e quantidades mensais de transações por município do pagador e do recebedor, pessoa física e
+      jurídica, desde novembro de 2020. O Atlas soma os 12 meses de cada ano completo.
   - id: bcb_postos
     source: bcb
     name: Cadastro de postos de atendimento de instituições supervisionadas pelo BCB
@@ -223,10 +226,14 @@ datasets:
     notes: Granularidade territorial efetivamente publicada a ser verificada antes da integração.
   - id: tesouro_siconfi
     source: tesouro
-    name: SICONFI — Finanças do Brasil (FINBRA) e declarações contábeis
-    endpoint: https://apidatalake.tesouro.gov.br/ords/siconfi/tt
+    name: SICONFI — Declaração de Contas Anuais (DCA) dos municípios
+    endpoint: https://apidatalake.tesouro.gov.br/ords/siconfi/tt/dca
     access: api
-    status: planejado
+    status: disponivel
+    notes: >
+      Anexos I-C (receitas), I-D (despesas por natureza) e I-E (despesas por função), exercícios de 2014 em
+      diante. A API responde um município e um anexo por consulta; o Atlas guarda em cache só os valores
+      extraídos de cada declaração.
   - id: mte_rais
     source: mte
     name: RAIS e Novo CAGED

@@ -19,7 +19,7 @@ log = get_logger("cli")
 BACKEND = Path(__file__).resolve().parents[1]
 
 PIPELINES = ["territorios", "emancipacoes", "sgs", "populacao", "sidra", "domicilios", "censo_agro", "estban",
-             "cooperativas", "scr", "agregacao"]
+             "cooperativas", "scr", "pix", "siconfi", "agregacao"]
 
 
 def migrate() -> None:
@@ -40,7 +40,7 @@ def seed() -> None:
 
 
 def ingest(name: str, args) -> None:
-    from .pipelines import aggregate, bcb, cooperativas, emancipacoes, sidra, territories
+    from .pipelines import aggregate, bcb, cooperativas, emancipacoes, pix, siconfi, sidra, territories
 
     refresh = args.refresh
     if name == "territorios":
@@ -51,6 +51,10 @@ def ingest(name: str, args) -> None:
         cooperativas.run_postos(start=args.inicio or 2016, end=args.fim, refresh=refresh)
     elif name == "scr":
         cooperativas.run_scr(start=args.inicio or 2012, end=args.fim, refresh=refresh)
+    elif name == "pix":
+        pix.run(start=args.inicio or pix.FIRST_FULL_YEAR, end=args.fim, refresh=refresh)
+    elif name == "siconfi":
+        siconfi.run(start=args.inicio or 2014, end=args.fim, refresh=refresh)
     elif name == "sgs":
         bcb.run_sgs()
     elif name == "populacao":

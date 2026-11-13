@@ -8,7 +8,7 @@ dimensions:
   - {id: educacao, name: Educação, status: parcial}
   - {id: saude, name: Saúde, status: planejado}
   - {id: habitacao, name: Habitação e infraestrutura, status: parcial}
-  - {id: financas_publicas, name: Estado e finanças públicas, status: planejado}
+  - {id: financas_publicas, name: Estado e finanças públicas, status: parcial}
   - {id: territorio, name: Território e meio ambiente, status: planejado}
   - {id: financeiro, name: Sistema monetário e financeiro, status: mvp}
   - {id: patrimonio, name: Patrimônio e riqueza, status: mvp}
@@ -1494,15 +1494,515 @@ indicators:
     methodology: censo_2022
     description: Percentual dos domicílios particulares permanentes ocupados, conforme publicado pelo IBGE na própria tabela (Censo 2022).
     origem: {tipo: sidra, tabela: "6892", variavel: "1000381", classificacao: "67[2520]"}
-  # ---------------- Planejados (sem dados — exibidos como tal) ----------------
-  - id: pix_transacoes
-    name: Transações Pix por município
+  # ---------------- Pix (BCB) ----------------
+  - id: pix_valor
+    name: Pix — valor pago por pessoas e empresas do município
+    short_name: Pix — valor pago
     dimension: financeiro
     unit: brl
     nature: observado
     value_kind: nominal
-    status: planejado
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
     dataset: bcb_pix
+    methodology: pix
+    description: Soma, nos 12 meses do ano, do valor das transações Pix em que o pagador (pessoa física ou jurídica) está vinculado ao município.
+    limitations: O município é o do cadastro do usuário na instituição, não o local da compra. Inclui transferências entre contas da mesma pessoa. Só anos completos (2021 em diante).
+  - id: pix_transacoes
+    name: Pix — quantidade de transações pagas
+    short_name: Pix — transações
+    dimension: financeiro
+    unit: transacoes
+    nature: observado
+    value_kind: quantidade
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: bcb_pix
+    methodology: pix
+    description: Número de transações Pix no ano em que o pagador está vinculado ao município.
+    limitations: O município é o do cadastro do pagador. Só anos completos (2021 em diante).
+  - id: pix_valor_recebido
+    name: Pix — valor recebido por pessoas e empresas do município
+    short_name: Pix — valor recebido
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: bcb_pix
+    methodology: pix
+    description: Soma, nos 12 meses do ano, do valor das transações Pix em que o recebedor está vinculado ao município.
+    limitations: O município é o do cadastro do recebedor. Empresas com sede em outro município recebem lá, não onde vendem.
+  - id: pix_valor_pf
+    name: Pix — valor pago por pessoas físicas
+    short_name: Pix — valor pago por pessoas físicas
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: bcb_pix
+    methodology: pix
+    description: Parcela do valor pago por Pix cujos pagadores são pessoas físicas do município.
+  - id: pix_usuarios_pf
+    name: Pix — pessoas físicas que pagaram com Pix em dezembro
+    short_name: Pix — pessoas pagadoras (dez.)
+    dimension: financeiro
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    decimals: 0
+    levels: [MUN]
+    dataset: bcb_pix
+    methodology: pix
+    description: Número de pessoas físicas vinculadas ao município que fizeram ao menos um pagamento por Pix em dezembro.
+    limitations: Contagem mensal; não é somada entre municípios nem entre meses, pois a mesma pessoa pode constar em mais de um.
+  - id: pix_pc
+    name: Pix — valor pago por habitante
+    short_name: Pix por habitante
+    dimension: financeiro
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    stock_flow: fluxo
+    formula: "pix_valor / populacao"
+    dataset: atlas_derivados
+    methodology: pix
+  - id: pix_ticket_medio
+    name: Pix — valor médio por transação
+    short_name: Pix — valor médio
+    dimension: financeiro
+    unit: brl_transacao
+    nature: derivado
+    value_kind: nominal
+    formula: "pix_valor / pix_transacoes"
+    dataset: atlas_derivados
+    methodology: pix
+  - id: pix_pct_pf
+    name: Pix — participação das pessoas físicas no valor pago
+    short_name: Pix — % pago por pessoas físicas
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(pix_valor_pf, pix_valor)"
+    dataset: atlas_derivados
+    methodology: pix
+  - id: pix_recebido_pago
+    name: Pix — valor recebido em relação ao valor pago
+    short_name: Pix — recebido / pago
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "pct(pix_valor_recebido, pix_valor)"
+    dataset: atlas_derivados
+    methodology: pix
+    description: Acima de 100%, o município recebe por Pix mais do que paga; abaixo, paga mais do que recebe.
+    limitations: Reflete também onde as empresas recebedoras têm cadastro (sedes), não só o comércio local.
+  - id: pix_usuarios_pct_pop
+    name: Pix — pessoas pagadoras em dezembro em relação à população
+    short_name: Pix — pagadores / população
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "pct(pix_usuarios_pf, populacao)"
+    dataset: atlas_derivados
+    methodology: pix
+    limitations: Pode passar de 100% onde há mais usuários cadastrados no município do que moradores estimados.
+  - id: pix_pib
+    name: Pix — valor pago em relação ao PIB
+    short_name: Pix / PIB
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "pct(pix_valor, pib_nominal)"
+    dataset: atlas_derivados
+    methodology: pix
+    limitations: Pix mede pagamentos brutos (inclui transferências e a mesma renda circulando várias vezes); PIB mede valor adicionado. A razão indica intensidade de uso, não parcela do PIB.
+  # ---------------- Finanças municipais (SICONFI) ----------------
+  - id: fin_receita_total
+    name: Receita orçamentária total do município
+    short_name: Receita total
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Total das receitas orçamentárias realizadas (correntes, de capital e intraorçamentárias), líquidas das deduções."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_receita_corrente
+    name: Receita corrente do município
+    short_name: Receita corrente
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Receitas correntes realizadas, exceto intraorçamentárias, líquidas das deduções (FUNDEB e outras)."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_receita_tributaria
+    name: Receita de impostos, taxas e contribuições de melhoria
+    short_name: Receita tributária
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Arrecadação própria de impostos (IPTU, ISS, ITBI, IRRF), taxas e contribuições de melhoria, líquida das deduções."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_transferencias_correntes
+    name: Transferências correntes recebidas
+    short_name: Transferências correntes
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Transferências correntes da União, do estado e de outros, líquidas da dedução para o FUNDEB."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_iptu
+    name: Arrecadação de IPTU
+    short_name: IPTU
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Imposto sobre a Propriedade Predial e Territorial Urbana, líquido das deduções."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_iss
+    name: Arrecadação de ISS
+    short_name: ISS
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Imposto sobre Serviços de Qualquer Natureza, líquido das deduções."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_itbi
+    name: Arrecadação de ITBI
+    short_name: ITBI
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Imposto sobre Transmissão \"Inter Vivos\" de Bens Imóveis, líquido das deduções."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_fpm
+    name: Cota-parte do Fundo de Participação dos Municípios (FPM)
+    short_name: FPM
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Cota-parte do FPM recebida, incluídas as cotas extras de julho, setembro e dezembro, líquida da dedução para o FUNDEB."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_despesa_total
+    name: Despesa orçamentária total do município
+    short_name: Despesa total
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Total geral das despesas empenhadas no exercício (correntes e de capital, incluídas as intraorçamentárias)."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_despesa_pessoal
+    name: Despesa com pessoal e encargos sociais
+    short_name: Despesa com pessoal
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Despesas empenhadas no grupo Pessoal e Encargos Sociais."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_investimentos
+    name: Investimentos do município
+    short_name: Investimentos
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Despesas empenhadas no grupo Investimentos (obras, equipamentos e material permanente)."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_despesa_saude
+    name: Despesa na função Saúde
+    short_name: Despesa com saúde
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Despesas empenhadas na função Saúde, de todas as fontes de recursos."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_despesa_educacao
+    name: Despesa na função Educação
+    short_name: Despesa com educação
+    dimension: financas_publicas
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [MUN]
+    dataset: tesouro_siconfi
+    methodology: siconfi
+    description: "Despesas empenhadas na função Educação, de todas as fontes de recursos."
+    limitations: Valor declarado pela prefeitura ao Tesouro, sem auditoria; há erros de classificação e declarações incompletas. Conta ausente da declaração fica sem valor.
+  - id: fin_receita_pc
+    name: Receita orçamentária por habitante
+    short_name: Receita por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_receita_total / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_tributaria_pc
+    name: Receita tributária por habitante
+    short_name: Receita tributária por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_receita_tributaria / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_iptu_pc
+    name: IPTU por habitante
+    short_name: IPTU por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_iptu / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_iss_pc
+    name: ISS por habitante
+    short_name: ISS por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_iss / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_autonomia
+    name: Receita tributária própria na receita corrente
+    short_name: Autonomia fiscal
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_receita_tributaria, fin_receita_corrente)"
+    dataset: atlas_derivados
+    methodology: siconfi
+    limitations: "Quanto da receita corrente vem de tributos arrecadados pelo próprio município."
+  - id: fin_dependencia_transferencias
+    name: Transferências correntes na receita corrente
+    short_name: Dependência de transferências
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_transferencias_correntes, fin_receita_corrente)"
+    dataset: atlas_derivados
+    methodology: siconfi
+  - id: fin_fpm_pct
+    name: FPM na receita corrente
+    short_name: Peso do FPM
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_fpm, fin_receita_corrente)"
+    dataset: atlas_derivados
+    methodology: siconfi
+  - id: fin_despesa_pc
+    name: Despesa orçamentária por habitante
+    short_name: Despesa por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_despesa_total / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_investimentos_pc
+    name: Investimentos por habitante
+    short_name: Investimento por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_investimentos / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_investimentos_pct
+    name: Investimentos na despesa total
+    short_name: "% da despesa em investimentos"
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_investimentos, fin_despesa_total)"
+    dataset: atlas_derivados
+    methodology: siconfi
+  - id: fin_pessoal_pct
+    name: Pessoal e encargos na despesa total
+    short_name: "% da despesa com pessoal"
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_despesa_pessoal, fin_despesa_total)"
+    dataset: atlas_derivados
+    methodology: siconfi
+    limitations: "Não é o índice de pessoal da Lei de Responsabilidade Fiscal, que usa a receita corrente líquida e outras regras."
+  - id: fin_saude_pc
+    name: Despesa com saúde por habitante
+    short_name: Saúde por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_despesa_saude / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_educacao_pc
+    name: Despesa com educação por habitante
+    short_name: Educação por habitante
+    dimension: financas_publicas
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_despesa_educacao / populacao"
+    dataset: atlas_derivados
+    methodology: siconfi
+    stock_flow: fluxo
+  - id: fin_saude_pct
+    name: Saúde na despesa total
+    short_name: "% da despesa com saúde"
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_despesa_saude, fin_despesa_total)"
+    dataset: atlas_derivados
+    methodology: siconfi
+    limitations: "Não é o mínimo constitucional de 15%, calculado sobre impostos e transferências."
+  - id: fin_educacao_pct
+    name: Educação na despesa total
+    short_name: "% da despesa com educação"
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "part(fin_despesa_educacao, fin_despesa_total)"
+    dataset: atlas_derivados
+    methodology: siconfi
+    limitations: "Não é o mínimo constitucional de 25%, calculado sobre impostos e transferências."
+  - id: fin_resultado_pct
+    name: Resultado orçamentário em relação à receita
+    short_name: Resultado orçamentário
+    dimension: financas_publicas
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [MUN]
+    formula: "pct(fin_receita_total - fin_despesa_total, fin_receita_total)"
+    dataset: atlas_derivados
+    methodology: siconfi
+    limitations: "Receita realizada menos despesa empenhada, como % da receita. Negativo = despesa empenhada maior que a receita do exercício."
+  # ---------------- Planejados (sem dados — exibidos como tal) ----------------
   - id: irpf_bens_direitos
     name: Bens e direitos declarados ao IRPF
     dimension: patrimonio
