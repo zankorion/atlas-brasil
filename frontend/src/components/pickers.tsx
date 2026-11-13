@@ -21,8 +21,10 @@ export function useCatalog() {
 }
 
 /** Seletor de indicador agrupado por dimensão; inclui indicadores personalizados salvos. */
-export function IndicatorSelect({ value, onChange, level, frequency, label = "Indicador", allowCustom = true }: {
+export function IndicatorSelect({ value, onChange, level, frequency, label = "Indicador", allowCustom = true, placeholder }: {
   value: string; onChange: (v: string) => void; level?: string; frequency?: "A" | "M"; label?: string; allowCustom?: boolean;
+  /** Texto da opção vazia; com ele o seletor aceita valor "" (nenhum indicador escolhido). */
+  placeholder?: string;
 }) {
   const { indicators, dimensions, custom } = useCatalog();
   const groups = useMemo(() => {
@@ -32,7 +34,8 @@ export function IndicatorSelect({ value, onChange, level, frequency, label = "In
   const known = value.startsWith("=") ? custom.some((c) => "=" + c.expr === value) : true;
   return (
     <select className={inputCls} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
-      {groups.length === 0 && <option value={value}>Carregando…</option>}
+      {placeholder && <option value="">{placeholder}</option>}
+      {groups.length === 0 && !placeholder && <option value={value}>Carregando…</option>}
       {groups.map((g) => (
         <optgroup key={g.d.id} label={g.d.name}>
           {g.items.map((i) => (

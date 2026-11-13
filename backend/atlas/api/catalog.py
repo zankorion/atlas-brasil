@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 
 from ..catalog.loader import read_catalog
 from ..config import settings
@@ -146,7 +146,9 @@ def territories(c: Ctx = Depends(ctx), level: str | None = None, q: str | None =
     if q:
         n = normalize(q)
         st = st.where(or_(Territory.name_norm.like(f"{n}%"), Territory.name_norm.like(f"% {n}%"), Territory.code == q.strip()))
-        st = st.order_by(Territory.name_norm.like(f"{n}%").desc(), func.length(Territory.name), Territory.name)
+        # homônimos (município, região imediata e intermediária de mesmo nome): estado e município vêm primeiro
+        rank = case({"BR": 0, "UF": 0, "MUN": 1, "REGIAO": 2, "RGI": 3, "RGINT": 4}, value=Territory.level, else_=5)
+        st = st.order_by(Territory.name_norm.like(f"{n}%").desc(), func.length(Territory.name), rank, Territory.name)
     else:
         st = st.order_by(Territory.name)
     return [_terr(t, ufs) for t in c.s.scalars(st.limit(limit))]

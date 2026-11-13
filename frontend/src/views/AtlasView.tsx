@@ -1,8 +1,8 @@
 "use client";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChoroMap, type MapSync } from "@/components/ChoroMap";
-import { IndicatorSelect, LEVEL_OPTIONS, TerritorySearch, UfSelect, useCatalog } from "@/components/pickers";
+import { bboxOf, ChoroMap, type Box, type MapSync } from "@/components/ChoroMap";
+import { IndicatorSelect, LEVEL_OPTIONS, TerritorySearch, UfSelect, useCatalog, useUfs } from "@/components/pickers";
 import { RankPanel, type RankItem } from "@/components/RankPanel";
 import { Button, Check, Field, Notice, Provenance, Select, Stat } from "@/components/ui";
 import { API, api, loadGeo, qs, useApi, type MapData, type Stats, type Territory, type VarMeta } from "@/lib/api";
@@ -58,10 +58,10 @@ type PanelProps = {
   /** true = ranking ao lado do mapa (um mapa só); false = abaixo (dois mapas). */
   side: boolean;
   sel: Sel[]; hov: string | null; onHover: (c: string | null) => void; onToggle: (code: string, name: string) => void;
-  onSpec?: (spec: string) => void;
+  onSpec?: (spec: string) => void; focusBox: Box | null; outlines: GeoJSON.Feature[];
 };
 
-function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov, onHover, onToggle, onSpec }: PanelProps) {
+function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov, onHover, onToggle, onSpec, focusBox, outlines }: PanelProps) {
   const [spec, setSpecState] = useState(initial);
   const [period, setPeriod] = useState<string | null>(initialPeriod ?? null);
   const [base, setBase] = useState<string | null>(null);
@@ -80,8 +80,9 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
     const id = requestAnimationFrame(() => { setSwitched(from); setSpecState(fallback); setPeriod(null); setBase(null); });
     return () => cancelAnimationFrame(id);
   }, [fallback, current]);
+  // Sem indicador escolhido o mapa fica em branco (só a malha): nada é consultado.
   const { data, error, loading } = useApi<MapData>(
-    `/api/map${qs({ var: spec, level: shared.level, period, real: shared.real, method: continuous ? "quantis" : shared.method, k: shared.k, uf })}`,
+    spec ? `/api/map${qs({ var: spec, level: shared.level, period, real: shared.real, method: continuous ? "quantis" : shared.method, k: shared.k, uf })}` : null,
   );
   const ok = data && data.meta.spec === spec && data.level === shared.level ? data : null;
   const periods = ok?.periods ?? [];
@@ -180,7 +181,7 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
     <section aria-label={title} className="flex min-w-0 flex-1 flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-[1fr_8rem_10rem]">
         <Field label={`${title} — indicador`}>
-          <IndicatorSelect value={spec} onChange={setSpec} level={shared.level} frequency="A" />
+          <IndicatorSelect value={spec} onChange={setSpec} level={shared.level} frequency="A" placeholder="— escolha um indicador —" />
         </Field>
         <Field label="Período">
           <select className="w-full rounded border border-line bg-surface px-2.5 py-1.5 text-sm" value={cur ?? ""} onChange={(e) => setPeriod(e.target.value)} disabled={!periods.length} aria-label="Período">
@@ -214,10 +215,17 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
           <ChoroMap
             level={shared.level} values={values} colorOf={colorOf} uf={uf}
             format={(v) => (ok ? fmtValue(v, unit) : "—")} selected={selCodes}
-            onSelect={onToggle} sync={sync} hovered={hov} onHover={onHover}
+            onSelect={onToggle} sync={sync} hovered={hov} onHover={onHover} focus={focusBox} outlines={outlines} selectionFull={sel.length >= MAX_SEL}
             ariaLabel={ok ? `Mapa: ${legendTitle}, ${LEVEL_NAMES[shared.level]}, ${legendSub}` : "Mapa"}
           />
-          {(loading || (variation && hist.loading)) && <span className="absolute left-3 top-3 rounded bg-surface px-2 py-1 text-xs text-muted shadow">Atualizando…</span>}
+          {!spec && (
+            <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-14">
+              <p className="rounded border border-line bg-surface/95 px-3 py-2 text-center text-sm shadow">
+                Mapa em branco. Escolha um <span className="font-medium">indicador</span> acima para colorir os territórios.
+              </p>
+            </div>
+          )}
+          {spec && (loading || (variation && hist.loading)) && <span className="absolute left-3 top-3 rounded bg-surface px-2 py-1 text-xs text-muted shadow">Atualizando…</span>}
           {ok && (
             <div className="absolute bottom-3 left-3 max-w-[70%] rounded border border-line bg-surface/95 p-2.5 text-xs shadow">
               <div className="mb-1 font-medium">{legendTitle} <span className="font-normal text-muted">({legendSub})</span></div>
@@ -296,10 +304,10 @@ export default function AtlasView() {
   const [compare, setCompare] = useState(sp.get("comparar") === "1");
   const [sel, setSel] = useState<Sel[]>([]);
   const [hov, setHov] = useState<string | null>(null);
-  const [focus, setFocus] = useState(sp.get("var") ?? "icr");
+  const [focus, setFocus] = useState(sp.get("var") ?? "");
   const sync = useRef<MapSync>({ maps: new Set(), busy: false });
   const set = (p: Partial<Shared>) => setShared((s) => ({ ...s, ...p }));
-  const initial = sp.get("var") ?? "icr";
+  const initial = sp.get("var") ?? "";
 
   // Seleção inicial vinda do endereço: /territorios/{código} ou ?codes=a,b,c
   const initialCodes = params.code ?? sp.get("codes") ?? "";
@@ -325,31 +333,97 @@ export default function AtlasView() {
   }, [shared.level]);
   const onToggle = useCallback((code: string, name: string) => toggle(code, name), [toggle]);
 
+  // Enquadramento: o mapa aproxima no conjunto dos territórios selecionados (o Brasil não tem polígono próprio).
+  const [focusBox, setFocusBox] = useState<Box | null>(null);
+  const [outlines, setOutlines] = useState<GeoJSON.Feature[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const targets = sel.filter((x) => MAP_LEVELS.has(x.level));
+    Promise.all([...new Set(targets.map((x) => x.level))].map(async (lv) => [lv, await loadGeo(lv)] as const)).then((geos) => {
+      if (!alive) return;
+      const by = new Map(geos);
+      const feats: GeoJSON.Feature[] = [];
+      sel.forEach((x, i) => {
+        const f = by.get(x.level)?.features.find((g) => String((g.properties as { code: string }).code) === x.code);
+        if (f) feats.push({ type: "Feature", geometry: f.geometry, properties: { code: x.code, i } });
+      });
+      setOutlines(feats);
+      setFocusBox(bboxOf(feats));
+    }).catch(() => { if (alive) { setOutlines([]); setFocusBox(null); } });
+    return () => { alive = false; };
+  }, [sel]);
+
+  // Sugestões de comparação a partir do último território escolhido.
+  const ufs = useUfs();
+  const last = sel[sel.length - 1];
+  const full = sel.length >= MAX_SEL;
+  const has = (code: string) => sel.some((x) => x.code === code);
+  const lastUf = last && UF_LEVELS.has(last.level) ? ufs.find((u) => u.code === last.code.slice(0, 2)) : undefined;
+  // o clique no mapa não informa a UF: ela sai dos dois primeiros dígitos do código do município
+  const siglaOf = (x: Sel) => x.uf ?? ufs.find((u) => u.code === x.code.slice(0, 2))?.sigla ?? null;
+  const [simBusy, setSimBusy] = useState(false);
+  const addSimilar = async () => {
+    if (!last) return;
+    setSimBusy(true);
+    try {
+      const r = await api<{ items: { code: string; name: string; uf: string | null }[] }>(`/api/similar/${last.code}?n=6`);
+      setSel((cur) => {
+        const add = r.items.filter((i) => !cur.some((x) => x.code === i.code)).slice(0, Math.min(3, MAX_SEL - cur.length));
+        return [...cur, ...add.map((i) => ({ code: i.code, name: i.name, level: last.level, uf: i.uf }))];
+      });
+    } catch { /* sem semelhantes: nada a adicionar */ } finally { setSimBusy(false); }
+  };
+  const sugCls = "rounded-full border border-dashed border-line px-2.5 py-0.5 hover:border-accent hover:text-accent disabled:opacity-50";
+
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-4">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="font-serif text-2xl font-semibold tracking-tight">Explorar</h1>
-          <p className="max-w-3xl text-sm text-muted">Mapa, ranking, perfis e comparações em um só lugar. Clique em territórios no mapa ou no ranking para selecioná-los: um abre o perfil; dois ou mais, a comparação. Escolha “Variação desde” para comparar dois períodos.</p>
-        </div>
-        <div className="w-full sm:w-80">
-          <TerritorySearch onPick={(t) => toggle(t.code, t.name, t.level, t.uf)} exclude={sel.map((s) => s.code)} placeholder="Buscar e selecionar território…" />
-        </div>
+      <div className="min-w-0">
+        <h1 className="font-serif text-2xl font-semibold tracking-tight">Explorar</h1>
+        <p className="max-w-3xl text-sm text-muted">Monte o seu mapa: escolha um indicador para colorir os territórios e selecione os lugares que quer ver de perto. Um território abre o perfil; dois ou mais, a comparação.</p>
       </div>
 
-      <div className="mt-3 flex min-h-9 flex-wrap items-center gap-1.5 text-sm">
-        <span className="text-xs uppercase tracking-wide text-muted">Selecionados{sel.length ? ` (${sel.length} de ${MAX_SEL})` : ""}:</span>
-        {sel.length === 0 && <span className="text-muted">nenhum — clique no mapa, no ranking ou use a busca.</span>}
-        {sel.map((s, i) => (
-          <span key={s.code} className="flex items-center gap-1.5 rounded border border-line bg-surface px-2 py-1">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: `var(--series-${(i % 8) + 1})` }} />
-            {s.name}{s.uf && s.level === "MUN" ? ` (${s.uf})` : ""}
-            <button type="button" onClick={() => setSel(sel.filter((x) => x.code !== s.code))} aria-label={`Remover ${s.name} da seleção`} className="text-muted hover:text-danger">×</button>
-          </span>
-        ))}
-        {sel.length > 0 && <button type="button" className="ml-1 text-muted underline hover:text-ink" onClick={() => setSel([])}>Limpar seleção</button>}
-        {sel.length > 0 && <a href="#selecao" className="ml-1 text-accent underline">{sel.length === 1 ? "Ir para o perfil ↓" : "Ir para a comparação ↓"}</a>}
-      </div>
+      <section aria-label="Territórios selecionados" className="mt-3 rounded-md border border-line bg-surface p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h2 className="text-sm font-medium">{sel.length === 0 ? "Escolha os territórios" : sel.length === 1 ? "1 território selecionado" : `Comparando ${sel.length} territórios`}
+            <span className="ml-2 font-normal text-muted">até {MAX_SEL}</span></h2>
+          <div className="w-full sm:w-96">
+            {full ? <p className="rounded border border-line px-2.5 py-1.5 text-sm text-muted">Seleção cheia: remova um território para adicionar outro.</p>
+              : <TerritorySearch onPick={(t) => toggle(t.code, t.name, t.level, t.uf)} exclude={sel.map((x) => x.code)}
+                  placeholder={sel.length ? "Adicionar município, estado ou região…" : "Buscar município, estado ou região…"} />}
+          </div>
+          {sel.length > 0 && (
+            <div className="ml-auto flex items-center gap-2 text-sm">
+              <button type="button" className="text-muted underline hover:text-ink" onClick={() => setSel([])}>Limpar</button>
+              <a href="#selecao" className="rounded bg-accent px-3 py-1.5 font-medium text-accent-ink">{sel.length === 1 ? "Ver perfil ↓" : `Ver comparação (${sel.length}) ↓`}</a>
+            </div>
+          )}
+        </div>
+        {sel.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Busque pelo nome acima ou clique direto no mapa ou no ranking. O mapa aproxima no que você escolher; clique de novo num território para tirá-lo da seleção.</p>
+        ) : (
+          <>
+            <ul className="mt-2.5 flex flex-wrap gap-1.5 text-sm">
+              {sel.map((x, i) => (
+                <li key={x.code} className="flex items-center gap-1.5 rounded border border-line bg-surface-2 py-1 pl-2 pr-1">
+                  <span aria-hidden className="inline-block h-3 w-3 rounded-full" style={{ background: `var(--series-${(i % 8) + 1})` }} />
+                  {x.name}{x.level === "MUN" && siglaOf(x) ? ` (${siglaOf(x)})` : ""}
+                  <button type="button" onClick={() => setSel(sel.filter((y) => y.code !== x.code))} aria-label={`Remover ${x.name} da seleção`}
+                    className="grid h-5 w-5 place-items-center rounded text-muted hover:bg-surface hover:text-danger">×</button>
+                </li>
+              ))}
+            </ul>
+            {!full && last && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                <span>Comparar com:</span>
+                {last.level !== "BR" && <button type="button" className={sugCls} disabled={simBusy} onClick={addSimilar}>+ parecidos com {last.name}</button>}
+                {lastUf && !has(lastUf.code) && <button type="button" className={sugCls} onClick={() => toggle(lastUf.code, lastUf.name, "UF", lastUf.uf)}>+ {lastUf.name} (estado)</button>}
+                {!has("BR") && <button type="button" className={sugCls} onClick={() => toggle("BR", "Brasil", "BR", null)}>+ Brasil</button>}
+                <span className="ml-1">A cor de cada etiqueta é a do contorno no mapa e das linhas nos gráficos.</span>
+              </div>
+            )}
+          </>
+        )}
+      </section>
 
       <div className="mt-3 grid grid-cols-2 gap-3 rounded-md border border-line bg-surface p-3 md:grid-cols-4 xl:grid-cols-8">
         <Field label="Nível territorial">
@@ -397,14 +471,14 @@ export default function AtlasView() {
 
       <div className={`mt-4 flex gap-5 ${compare ? "flex-col xl:flex-row" : ""}`}>
         <MapPanel key="a" side={!compare} shared={shared} sync={sync} initial={initial} initialPeriod={sp.get("period")} title={compare ? "Mapa A" : "Mapa"}
-          sel={sel} hov={hov} onHover={setHov} onToggle={onToggle} onSpec={setFocus} />
-        {compare && <MapPanel key="b" side={false} shared={shared} sync={sync} initial={sp.get("var2") ?? "credito_pc"} title="Mapa B"
+          sel={sel} hov={hov} onHover={setHov} onToggle={onToggle} onSpec={setFocus} focusBox={focusBox} outlines={outlines} />
+        {compare && <MapPanel key="b" side={false} shared={shared} sync={sync} initial={sp.get("var2") ?? ""} title="Mapa B" focusBox={focusBox} outlines={outlines}
           sel={sel} hov={hov} onHover={setHov} onToggle={onToggle} />}
       </div>
 
       <div id="selecao" className="mt-8 scroll-mt-20">
         {sel.length === 1 && <ProfileBody key={sel[0].code} code={sel[0].code} />}
-        {sel.length >= 2 && <TerritorialCompare terrs={sel} focus={focus.startsWith("=") ? undefined : focus} />}
+        {sel.length >= 2 && <TerritorialCompare terrs={sel} focus={!focus || focus.startsWith("=") ? undefined : focus} />}
         {sel.length === 0 && (
           <p className="rounded-md border border-dashed border-line p-6 text-center text-sm text-muted">
             Selecione um território para ver o perfil completo aqui, ou dois ou mais para compará-los.

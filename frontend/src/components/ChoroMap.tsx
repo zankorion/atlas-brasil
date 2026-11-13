@@ -1,5 +1,5 @@
 "use client";
-import { Map as MlMap, NavigationControl, setWorkerUrl, type MapGeoJSONFeature } from "maplibre-gl";
+import { Map as MlMap, NavigationControl, setWorkerUrl, type GeoJSONSource, type MapGeoJSONFeature } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { loadGeo } from "@/lib/api";
@@ -24,13 +24,24 @@ type Props = {
   onHover?: (code: string | null) => void;
   onSelect?: (code: string, name: string) => void;
   sync?: RefObject<MapSync>;
+  /** Caixa (oeste, sul, leste, norte) a enquadrar, p.ex. os territórios selecionados; nulo = recorte por UF ou Brasil. */
+  focus?: Box | null;
+  /** Polígonos dos selecionados, de qualquer nível territorial, com `properties.i` = posição na seleção (define a cor). */
+  outlines?: GeoJSON.Feature[];
+  /** Limite de selecionados atingido: o balão avisa que não dá para adicionar mais. */
+  selectionFull?: boolean;
   height?: string;
   ariaLabel: string;
 };
 
 type Tip = { x: number; y: number; w: number; name: string; uf?: string; code: string };
 
-function bboxOf(features: GeoJSON.Feature[]): [number, number, number, number] | null {
+export type Box = [number, number, number, number];
+
+/** Cor do contorno de cada selecionado: a mesma da sua etiqueta (séries 1 a 8), pela posição `i`. */
+const selColor = () => ["match", ["%", ["get", "i"], 8], ...[0, 1, 2, 3, 4, 5, 6].flatMap((i) => [i, cssVar(`--series-${i + 1}`)]), cssVar("--series-8")];
+
+export function bboxOf(features: GeoJSON.Feature[]): [number, number, number, number] | null {
   let x0 = 180, y0 = 90, x1 = -180, y1 = -90;
   const visit = (c: unknown) => {
     if (typeof (c as number[])[0] === "number") {
@@ -42,7 +53,7 @@ function bboxOf(features: GeoJSON.Feature[]): [number, number, number, number] |
   return x1 >= x0 ? [x0, y0, x1, y1] : null;
 }
 
-export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered, onHover, onSelect, sync, height = "100%", ariaLabel }: Props) {
+export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered, onHover, onSelect, sync, focus, outlines, selectionFull, height = "100%", ariaLabel }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const geoRef = useRef<GeoJSON.FeatureCollection | null>(null);
@@ -53,8 +64,10 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
   useEffect(() => { cb.current = { onSelect, onHover }; });
   const lastHover = useRef<string | null>(null);
   // Enquadramento: enquanto o usuário não mover o mapa, ele é reenquadrado quando o contêiner muda de tamanho.
-  const boundsRef = useRef<[number, number, number, number]>(BR_BOUNDS);
+  const fitRef = useRef<{ bounds: Box; padding: number; maxZoom: number }>({ bounds: BR_BOUNDS, padding: 12, maxZoom: 11 });
   const movedRef = useRef(false);
+  const outlinesRef = useRef<GeoJSON.Feature[]>([]);
+  const lastFit = useRef({ uf: "", focusKey: "" });
 
   // Inicialização do mapa (sem mapa-base externo: apenas a malha do IBGE).
   useEffect(() => {
@@ -102,7 +115,8 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
     map.on("movestart", (e) => { if ((e as { originalEvent?: unknown }).originalEvent) movedRef.current = true; });
     const ro = new ResizeObserver(() => {
       map.resize();
-      if (!movedRef.current) map.fitBounds(boundsRef.current, { padding: 12, duration: 0 });
+      const f = fitRef.current;
+      if (!movedRef.current) map.fitBounds(f.bounds, { padding: f.padding, maxZoom: f.maxZoom, duration: 0 });
     });
     ro.observe(el.current);
     const onTheme = () => {
@@ -110,6 +124,8 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
       if (map.getLayer("terr-fill")) map.setPaintProperty("terr-fill", "fill-color", ["coalesce", ["feature-state", "color"], cssVar("--missing")]);
       if (map.getLayer("terr-line")) map.setPaintProperty("terr-line", "line-color", cssVar("--surface"));
       if (map.getLayer("uf-line")) map.setPaintProperty("uf-line", "line-color", cssVar("--ink"));
+      if (map.getLayer("sel-halo")) map.setPaintProperty("sel-halo", "line-color", cssVar("--surface"));
+      if (map.getLayer("sel-line")) map.setPaintProperty("sel-line", "line-color", selColor() as unknown as string);
     };
     window.addEventListener("atlas:theme", onTheme);
     return () => {
@@ -131,8 +147,8 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
       .then(([geo, ufGeo]) => {
         if (!alive) return;
         const apply = () => {
-          for (const id of ["terr-hover", "terr-selected", "uf-line", "terr-line", "terr-fill"]) if (map.getLayer(id)) map.removeLayer(id);
-          for (const id of ["terr", "ufs"]) if (map.getSource(id)) map.removeSource(id);
+          for (const id of ["terr-hover", "sel-line", "sel-halo", "uf-line", "terr-line", "terr-fill"]) if (map.getLayer(id)) map.removeLayer(id);
+          for (const id of ["terr", "ufs", "sel"]) if (map.getSource(id)) map.removeSource(id);
           map.addSource("terr", { type: "geojson", data: geo, promoteId: "code", tolerance: 0.2 });
           map.addLayer({ id: "terr-fill", type: "fill", source: "terr",
             paint: { "fill-color": ["coalesce", ["feature-state", "color"], cssVar("--missing")] } });
@@ -142,8 +158,10 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
             map.addSource("ufs", { type: "geojson", data: ufGeo });
             map.addLayer({ id: "uf-line", type: "line", source: "ufs", paint: { "line-color": cssVar("--ink"), "line-width": 0.7, "line-opacity": 0.55 } });
           }
-          map.addLayer({ id: "terr-selected", type: "line", source: "terr", filter: ["==", ["get", "code"], ""],
-            paint: { "line-color": cssVar("--ink"), "line-width": 2.5 } });
+          // contorno dos selecionados: fonte própria, pois podem ser de outro nível territorial (um estado sobre o mapa municipal)
+          map.addSource("sel", { type: "geojson", data: { type: "FeatureCollection", features: outlinesRef.current } });
+          map.addLayer({ id: "sel-halo", type: "line", source: "sel", paint: { "line-color": cssVar("--surface"), "line-width": 5.5 } });
+          map.addLayer({ id: "sel-line", type: "line", source: "sel", paint: { "line-color": selColor() as unknown as string, "line-width": 3 } });
           map.addLayer({ id: "terr-hover", type: "line", source: "terr", filter: ["==", ["get", "code"], ""],
             paint: { "line-color": cssVar("--ink"), "line-width": 1.5 } });
           geoRef.current = geo;
@@ -172,7 +190,8 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
     }
   }, [values, colorOf, geoLevel, level]);
 
-  // Recorte por UF: filtra a malha e enquadra o estado.
+  // Recorte por UF (filtra a malha) e enquadramento: territórios em foco, senão o estado do recorte, senão o Brasil.
+  const focusKey = focus ? focus.join(",") : "";
   useEffect(() => {
     const map = mapRef.current;
     const geo = geoRef.current;
@@ -181,18 +200,26 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
     const f = uf && canFilter ? (["==", ["get", "uf"], uf] as ["==", ["get", string], string]) : null;
     map.setFilter("terr-fill", f);
     map.setFilter("terr-line", f);
-    const bb = uf && canFilter ? bboxOf(geo.features.filter((x) => (x.properties as { uf?: string }).uf === uf)) : BR_BOUNDS;
+    const base = uf && canFilter ? bboxOf(geo.features.filter((x) => (x.properties as { uf?: string }).uf === uf)) : BR_BOUNDS;
+    // vale a última ação: escolher um estado no recorte enquadra o estado, mesmo havendo territórios selecionados
+    const ufChanged = lastFit.current.uf !== (uf ?? ""), focusChanged = lastFit.current.focusKey !== focusKey;
+    lastFit.current = { uf: uf ?? "", focusKey };
+    const fb = focusKey && (focusChanged || !ufChanged || !uf) ? (focusKey.split(",").map(Number) as Box) : null;
+    const bb = fb ?? base;
     if (bb) {
-      boundsRef.current = bb;
+      // no foco, deixa margem e limita a aproximação para o entorno continuar visível
+      fitRef.current = { bounds: bb, padding: fb ? 56 : 16, maxZoom: fb ? 8.5 : 11 };
       movedRef.current = false;
-      map.fitBounds(bb, { padding: 16, duration: 400 });
+      map.fitBounds(bb, { padding: fitRef.current.padding, maxZoom: fitRef.current.maxZoom, duration: 600 });
     }
-  }, [uf, geoLevel, level]);
+  }, [uf, geoLevel, level, focusKey]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getLayer("terr-selected")) map.setFilter("terr-selected", ["in", ["get", "code"], ["literal", selected ?? []]]);
-  }, [selected, geoLevel]);
+    outlinesRef.current = outlines ?? [];
+    const src = map?.getSource("sel") as GeoJSONSource | undefined;
+    src?.setData({ type: "FeatureCollection", features: outlinesRef.current });
+  }, [outlines, geoLevel]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -200,6 +227,7 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
   }, [hovered, geoLevel]);
 
   const tv = tip ? values.get(tip.code) : undefined;
+  const tipSel = !!tip && !!selected?.includes(tip.code);
   return (
     <div className="relative overflow-hidden rounded-md border border-line" style={{ height }}>
       <div ref={el} className="h-full w-full" role="application" aria-label={ariaLabel} />
@@ -211,7 +239,8 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
           style={{ left: Math.max(4, Math.min(tip.x + 14, tip.w - 220)), top: tip.y + 14 }}
         >
           <div className="font-medium">{tip.name}</div>
-          <div className="num text-muted">{tv === null || tv === undefined ? "Sem dado (ausente)" : format(tv)}</div>
+          {values.size > 0 && <div className="num text-muted">{tv === null || tv === undefined ? "Sem dado (ausente)" : format(tv)}</div>}
+          {onSelect && <div className="mt-0.5 text-xs text-accent">{tipSel ? "Clique para tirar da seleção" : selectionFull ? "Seleção cheia: remova um para trocar" : selected?.length ? "Clique para adicionar à comparação" : "Clique para selecionar"}</div>}
         </div>
       )}
     </div>
