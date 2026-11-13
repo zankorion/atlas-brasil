@@ -1,0 +1,12 @@
+[project]
+name = "atlas-brasil"
+version = "0.1.0"
+description = "Atlas Econômico e Social do Brasil — backend"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning:starlette.*", "ignore:Using .httpx.*"]
+
+[tool.ruff]
+line-length = 140

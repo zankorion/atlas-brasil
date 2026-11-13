@@ -1,0 +1,17 @@
+# dados locais (banco, cache bruto das fontes, malhas)
+data/
+.env
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# node
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+.claude/

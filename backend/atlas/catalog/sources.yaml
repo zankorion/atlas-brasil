@@ -1,0 +1,275 @@
+# Catálogo de fontes (instituições) e bases de dados.
+# status: integrado = há conector funcional neste repositório; planejado = ainda não integrado.
+sources:
+  - id: ibge
+    name: Instituto Brasileiro de Geografia e Estatística (IBGE)
+    url: https://www.ibge.gov.br
+    license: Dados públicos; uso livre com citação da fonte (política de dados abertos do IBGE).
+  - id: bcb
+    name: Banco Central do Brasil (BCB)
+    url: https://www.bcb.gov.br
+    license: Open Database License (ODbL), conforme o Portal de Dados Abertos do BCB.
+  - id: rfb
+    name: Secretaria Especial da Receita Federal do Brasil
+    url: https://www.gov.br/receitafederal
+  - id: tesouro
+    name: Secretaria do Tesouro Nacional
+    url: https://www.tesourotransparente.gov.br
+  - id: mte
+    name: Ministério do Trabalho e Emprego
+    url: https://www.gov.br/trabalho-e-emprego
+  - id: inep
+    name: Instituto Nacional de Estudos e Pesquisas Educacionais Anísio Teixeira (INEP)
+    url: https://www.gov.br/inep
+  - id: datasus
+    name: Departamento de Informática do SUS (DATASUS)
+    url: https://datasus.saude.gov.br
+  - id: tse
+    name: Tribunal Superior Eleitoral (TSE)
+    url: https://dadosabertos.tse.jus.br
+  - id: inpe
+    name: Instituto Nacional de Pesquisas Espaciais (INPE)
+    url: https://terrabrasilis.dpi.inpe.br
+  - id: mapbiomas
+    name: MapBiomas
+    url: https://brasil.mapbiomas.org
+  - id: mdic
+    name: Ministério do Desenvolvimento, Indústria, Comércio e Serviços (Comex Stat)
+    url: https://comexstat.mdic.gov.br
+  - id: ipea
+    name: Instituto de Pesquisa Econômica Aplicada (IPEA)
+    url: http://www.ipeadata.gov.br
+  - id: atlas
+    name: Atlas Econômico e Social do Brasil (cálculo próprio)
+    notes: Indicadores derivados ou estimados pelo Atlas a partir de dados oficiais, com fórmula e metodologia publicadas.
+
+datasets:
+  - id: ibge_localidades
+    source: ibge
+    name: API de Localidades (divisão territorial brasileira)
+    endpoint: https://servicodados.ibge.gov.br/api/v1/localidades
+    format: JSON
+    access: api
+    coverage: Divisão territorial vigente — regiões, UFs, regiões geográficas intermediárias e imediatas, municípios.
+  - id: ibge_malhas
+    source: ibge
+    name: API de Malhas Geográficas (v4)
+    endpoint: https://servicodados.ibge.gov.br/api/v4/malhas
+    format: GeoJSON
+    access: api
+    coverage: Malha municipal e estadual vigente, generalizada (qualidade mínima) para visualização.
+    notes: Geometrias simplificadas — adequadas para mapas temáticos, não para medições de área.
+  - id: sidra_5938
+    source: ibge
+    name: "SIDRA 5938 — PIB dos Municípios: PIB, impostos e valor adicionado bruto a preços correntes"
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/5938
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 2002 em diante (série com referência 2010); Brasil, regiões, UFs e municípios.
+    notes: Valores a preços correntes. O IBGE não publica PIB municipal em volume (real). A série é revisada a cada divulgação.
+  - id: sidra_6579
+    source: ibge
+    name: SIDRA 6579 — Estimativas de população residente
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/6579
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 2001 em diante, exceto anos de censo/contagem (2007, 2010, 2022) e 2023.
+  - id: sidra_202
+    source: ibge
+    name: SIDRA 202 — Censo Demográfico, população residente por sexo e situação do domicílio
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/202
+    format: JSON
+    access: api
+    periodicity: decenal
+    coverage: Censos de 1970 a 2010 (o Atlas utiliza 2000 e 2010).
+  - id: sidra_4714
+    source: ibge
+    name: SIDRA 4714 — Censo 2022, população residente, área territorial e densidade demográfica
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/4714
+    format: JSON
+    access: api
+    coverage: "2022"
+  - id: sidra_3219
+    source: ibge
+    name: SIDRA 3219 — Censo 2010, domicílios particulares permanentes por condição de ocupação
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/3219
+    format: JSON
+    access: api
+    coverage: "2010"
+  - id: sidra_9930
+    source: ibge
+    name: SIDRA 9930 — Censo 2022, domicílios particulares permanentes ocupados por condição de ocupação
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/9930
+    format: JSON
+    access: api
+    coverage: "2022"
+  - id: sidra_6754
+    source: ibge
+    name: SIDRA 6754 — Censo Agropecuário 2017, número e área dos estabelecimentos por grupos de área total
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/6754
+    format: JSON
+    access: api
+    coverage: "2017"
+    notes: Células com poucos informantes são suprimidas (sigilo estatístico) no nível municipal.
+  - id: ibge_pam
+    source: ibge
+    name: Produção Agrícola Municipal — SIDRA 5457
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/5457
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 1974 em diante (o Atlas usa de 1995 em diante, em reais); Brasil, regiões, UFs e municípios.
+    notes: Lavouras temporárias e permanentes. Valor da produção a preços correntes. Zero absoluto ("-") significa que o município não produz.
+  - id: ibge_ppm
+    source: ibge
+    name: Pesquisa da Pecuária Municipal — SIDRA 3939 e 74
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/3939
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 1974 em diante (o Atlas usa de 1995 em diante); Brasil, regiões, UFs e municípios.
+  - id: ibge_cempre
+    source: ibge
+    name: Cadastro Central de Empresas (CEMPRE) — SIDRA 1685 (2006–2021) e 9528 (2022 em diante)
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/1685
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 2006 em diante; Brasil, regiões, UFs e municípios.
+    notes: >-
+      Organizações formais inscritas no CNPJ. Pessoal e salários são localizados no município da unidade local.
+      A série troca de tabela em 2022, o que pode gerar descontinuidade.
+  - id: ibge_registro_civil
+    source: ibge
+    name: Estatísticas do Registro Civil — SIDRA 2612 (nascidos vivos) e 2654 (óbitos)
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/2612
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 2003 em diante; município de residência da mãe (nascimentos) ou do falecido (óbitos).
+    notes: Eventos ocorridos no ano e registrados em cartório. Há sub-registro, maior nos primeiros anos da série e no Norte e Nordeste.
+  - id: ibge_censo_2022
+    source: ibge
+    name: Censo Demográfico 2022 — resultados do universo (SIDRA 9543, 9515, 6803, 6805, 6892, 9923, 9605)
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/9515
+    format: JSON
+    access: api
+    coverage: 2022 (e 2000/2010 para urbanização e cor ou raça, pelas tabelas 202 e 9605); Brasil, regiões, UFs e municípios.
+  - id: ibge_pnadc
+    source: ibge
+    name: PNAD Contínua anual — SIDRA 4562, 7435 e 7531
+    endpoint: https://servicodados.ibge.gov.br/api/v3/agregados/4562
+    format: JSON
+    access: api
+    periodicity: anual
+    coverage: 2012 em diante; Brasil, grandes regiões e UFs (não há resultado municipal).
+    notes: Pesquisa amostral — as estimativas têm erro de amostragem, maior nas UFs menores; o coeficiente de variação não é exibido.
+  - id: bcb_sgs
+    source: bcb
+    name: Sistema Gerenciador de Séries Temporais (SGS)
+    endpoint: https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados
+    format: JSON
+    access: api
+    periodicity: mensal
+    coverage: Séries nacionais; início variável por série (o Atlas preserva a data inicial efetiva a partir de jul/1994).
+    notes: Consultas limitadas a janelas de 10 anos por requisição; o conector pagina automaticamente.
+  - id: bcb_estban
+    source: bcb
+    name: ESTBAN — Estatística Bancária Mensal por município (Documento 4500)
+    endpoint: https://www.bcb.gov.br/content/estatisticas/estatistica_bancaria_estban/municipio/{AAAAMM}_ESTBAN.ZIP
+    format: CSV compactado (ZIP)
+    access: arquivo
+    periodicity: mensal
+    coverage: Jul/1988 em diante; municípios com agências de bancos comerciais, bancos múltiplos com carteira comercial e caixas econômicas.
+    notes: >-
+      Não inclui cooperativas de crédito, bancos de investimento/desenvolvimento, financeiras nem fintechs.
+      Os saldos são registrados no município da agência que contabiliza a operação, não no domicílio do tomador ou do depositante.
+  - id: bcb_scr
+    source: bcb
+    name: SCR.data — carteira de crédito por UF do tomador e tipo de instituição
+    endpoint: https://www.bcb.gov.br/pda/desig/planilha_{AAAA}.zip
+    format: CSV compactado (ZIP anual, um arquivo por mês)
+    access: arquivo
+    periodicity: mensal
+    coverage: 2012 em diante; unidades da Federação (domicílio do tomador); todo o Sistema Financeiro Nacional.
+    notes: >-
+      O Atlas lê apenas dezembro de cada ano, por requisições parciais, e guarda em cache somente o agregado
+      por UF e tipo de instituição (bancário, cooperativas, não bancário). Não há abertura municipal.
+  - id: bcb_pix
+    source: bcb
+    name: Estatísticas do Pix por município
+    endpoint: https://olinda.bcb.gov.br/olinda/servico/Pix_DadosAbertos/versao/v1/aplicacao
+    access: api
+    status: planejado
+  - id: bcb_postos
+    source: bcb
+    name: Cadastro de postos de atendimento de instituições supervisionadas pelo BCB
+    endpoint: https://www.bcb.gov.br/content/estabilidadefinanceira/agenciasconsorcio/postos/{AAAAMM}POSTOS.zip
+    format: Planilha XLS/XLSX compactada (ZIP)
+    access: arquivo
+    periodicity: mensal
+    coverage: 2007 em diante; o segmento de cooperativas de crédito e o código IBGE do município só constam dos arquivos mais recentes.
+    notes: >-
+      Lista os postos de atendimento em funcionamento, com segmento da instituição e município. Não traz
+      saldos de crédito ou de depósitos. As sedes das cooperativas não constam deste arquivo.
+  - id: rfb_irpf
+    source: rfb
+    name: Grandes Números das Declarações do IRPF (dados agregados)
+    endpoint: https://www.gov.br/receitafederal/pt-br/centrais-de-conteudo/publicacoes/estudos/imposto-de-renda/estudos-por-ano
+    access: arquivo
+    status: planejado
+    notes: Granularidade territorial efetivamente publicada a ser verificada antes da integração.
+  - id: tesouro_siconfi
+    source: tesouro
+    name: SICONFI — Finanças do Brasil (FINBRA) e declarações contábeis
+    endpoint: https://apidatalake.tesouro.gov.br/ords/siconfi/tt
+    access: api
+    status: planejado
+  - id: mte_rais
+    source: mte
+    name: RAIS e Novo CAGED
+    access: arquivo
+    status: planejado
+  - id: inep_educacao
+    source: inep
+    name: Censo Escolar, IDEB e indicadores educacionais
+    access: arquivo
+    status: planejado
+  - id: datasus_tabnet
+    source: datasus
+    name: Indicadores de saúde (SIM, SINASC, CNES)
+    access: arquivo
+    status: planejado
+  - id: tse_resultados
+    source: tse
+    name: Resultados eleitorais, candidaturas e prestação de contas
+    endpoint: https://dadosabertos.tse.jus.br
+    access: arquivo
+    status: planejado
+  - id: inpe_prodes
+    source: inpe
+    name: PRODES/DETER — monitoramento do desmatamento
+    access: arquivo
+    status: planejado
+  - id: mapbiomas_cobertura
+    source: mapbiomas
+    name: Uso e cobertura da terra por município
+    access: arquivo
+    status: planejado
+  - id: comexstat_mun
+    source: mdic
+    name: Comex Stat — exportações e importações por município
+    access: arquivo
+    status: planejado
+  - id: ipeadata
+    source: ipea
+    name: IpeaData
+    endpoint: http://www.ipeadata.gov.br/api/odata4
+    access: api
+    status: planejado
+  - id: atlas_derivados
+    source: atlas
+    name: Indicadores derivados e estimados pelo Atlas
+    access: calculo

@@ -1,0 +1,296 @@
+units:
+  - {id: brl, label: "R$", dims: {BRL: 1}}
+  - {id: pessoas, label: "pessoas", dims: {pessoa: 1}}
+  - {id: km2, label: "km²", dims: {km2: 1}}
+  - {id: ha, label: "ha", dims: {ha: 1}}
+  - {id: pct, label: "%", dims: {}, percent: true}
+  - {id: pct_aa, label: "% a.a.", dims: {}, percent: true}
+  - {id: pct_am, label: "% a.m.", dims: {}, percent: true}
+  - {id: pp, label: "p.p.", dims: {}, percent: true}
+  - {id: razao, label: "razão", dims: {}}
+  - {id: indice, label: "índice", dims: {}}
+  - {id: brl_pc, label: "R$ por habitante", dims: {BRL: 1, pessoa: -1}}
+  - {id: hab_km2, label: "hab./km²", dims: {pessoa: 1, km2: -1}}
+  - {id: agencias, label: "agências", dims: {agencia: 1}}
+  - {id: agencias_pc, label: "agências por 100 mil hab.", dims: {agencia: 1, pessoa: -1}}
+  - {id: domicilios, label: "domicílios", dims: {domicilio: 1}}
+  - {id: estabelecimentos, label: "estabelecimentos", dims: {estab: 1}}
+  - {id: ha_estab, label: "ha por estabelecimento", dims: {ha: 1, estab: -1}}
+  - {id: brl_usd, label: "R$/US$", dims: {BRL: 1, USD: -1}}
+  - {id: anos, label: "anos", dims: {ano: 1}}
+  - {id: cabecas, label: "cabeças", dims: {cabeca: 1}}
+  - {id: litros, label: "litros", dims: {litro: 1}}
+  - {id: por_mil, label: "por mil hab.", dims: {}}
+  - {id: unidades_locais, label: "unidades locais", dims: {ul: 1}}
+  - {id: brl_ha, label: "R$ por hectare", dims: {BRL: 1, ha: -1}}
+  - {id: brl_trab, label: "R$ por assalariado", dims: {BRL: 1, pessoa: -1}}
+
+methodologies:
+  - id: malha_territorial
+    title: Divisão territorial e alterações de limites municipais
+    version: "2"
+    body: |
+      O Atlas adota os códigos oficiais do IBGE e a divisão territorial vigente (API de Localidades).
+      Municípios criados após 1994 só possuem observações a partir do ano de instalação; antes disso, sua
+      população e sua economia estão contidas nos municípios de origem. Por isso:
+
+      - cada série municipal preserva a data inicial efetivamente disponível, sem retroprojeção;
+      - municípios instalados e municípios que cederam área estão registrados na tabela `territory_change`
+        e são sinalizados nos perfis, nas séries e nas comparações históricas.
+
+      **Como a tabela é construída**
+
+      1. *Ano de instalação.* O IBGE publica a população na malha vigente em cada data. O Atlas verifica em
+         qual publicação cada município aparece pela primeira vez: Censo 1991, Contagem 1996, Censo 2000 e
+         estimativas anuais de 2001 em diante. Como os novos municípios são instalados com a posse dos
+         prefeitos, em 1º de janeiro do ano seguinte ao da eleição municipal, um município ausente em 1996 e
+         presente em 2000 é registrado como instalado em 1997; a partir de 2001 usa-se o ano da primeira
+         estimativa. O ano é, portanto, **inferido** — não é lido de um cadastro de datas de instalação.
+      2. *Município de origem.* Extraído por leitura automática do texto "Formação administrativa" da
+         Biblioteca do IBGE ("... desmembrado de X"). O texto não existe para todos os municípios e a
+         extração pode falhar ou captar apenas parte das origens; nesses casos a origem fica **não
+         identificada** e o município de origem não recebe o aviso de cessão de área.
+      3. Instalações desde 2005 foram conferidas manualmente e têm precedência.
+
+      Comparações entre anos anteriores e posteriores a um desmembramento devem ser lidas como comparações
+      entre unidades territoriais diferentes. Áreas mínimas comparáveis (AMC) estão previstas para versão futura.
+  - id: pib_municipal
+    title: PIB dos Municípios (IBGE)
+    body: |
+      PIB, impostos líquidos de subsídios sobre produtos e valor adicionado bruto (VAB) por grandes
+      atividades, a preços correntes, conforme a tabela SIDRA 5938 (série com referência 2010, de 2002 em diante).
+      Os valores originais em mil reais são armazenados em reais.
+
+      O IBGE não divulga o PIB municipal em volume. A opção "valores reais" do Atlas aplica o IPCA médio
+      anual (ver *Deflacionamento*), o que é uma aproximação do poder de compra e **não** equivale ao
+      crescimento real em volume das Contas Regionais. A série é revisada pelo IBGE a cada divulgação; o
+      Atlas preserva as versões anteriores.
+  - id: populacao_composta
+    title: Série de população residente
+    body: |
+      A série combina, sem interpolação, três tipos de publicação do IBGE:
+
+      - Censos Demográficos: 2000 e 2010 (SIDRA 202) e 2022 (SIDRA 4714) — contagem;
+      - Estimativas anuais de população (SIDRA 6579): 2001–2006, 2008–2009, 2011–2021 e 2024 em diante.
+
+      Anos sem publicação (1995–1999, 2007 e 2023) permanecem **ausentes**. Estimativas e censos têm
+      naturezas distintas: as estimativas de 2011–2021 foram projetadas a partir do Censo 2010 e, em vários
+      municípios, divergem sensivelmente do resultado do Censo 2022, gerando descontinuidades em 2010 e
+      2022 que não representam variação demográfica real. Indicadores per capita herdam essa limitação.
+  - id: per_capita
+    title: Normalização per capita
+    body: |
+      Indicadores per capita dividem o valor do ano pela população residente do mesmo ano e do mesmo
+      território (ver *Série de população residente*). Quando a população do ano não está disponível, o
+      indicador per capita fica ausente — não se utiliza a população de outro ano.
+  - id: estban
+    title: Estatística Bancária (ESTBAN) — crédito, depósitos e agências por município
+    body: |
+      Fonte: arquivos mensais do ESTBAN (Documento 4500) do Banco Central. Para a série anual do Atlas
+      utiliza-se a **posição de dezembro** de cada ano (estoque em fim de período), somando-se todas as
+      instituições com agência no município.
+
+      Definições (verbetes do documento 4500):
+
+      - Operações de crédito: verbete 160 (inclui 161 empréstimos e títulos descontados, 162 financiamentos,
+        163–166 financiamentos rurais, 169 financiamentos imobiliários, entre outros);
+      - Depósitos à vista: soma dos verbetes 401 a 419 (governos e setor privado);
+      - Depósitos de poupança: verbete 420; depósitos a prazo: verbete 432;
+      - Depósitos totais (Atlas): à vista + poupança + a prazo. Depósitos interfinanceiros são excluídos;
+      - Agências: número de agências que entregaram o documento no mês (AGEN_PROCESSADAS).
+
+      **Limitações essenciais**
+
+      1. Cobertura institucional: apenas bancos comerciais, bancos múltiplos com carteira comercial e
+         caixas econômicas. Cooperativas de crédito, bancos de desenvolvimento, financeiras e instituições
+         de pagamento não constam.
+      2. Localização contábil: os saldos pertencem à agência que registra a operação. Grandes operações
+         corporativas e depósitos podem estar concentrados em agências-sede (por exemplo, em São Paulo,
+         Brasília ou Osasco), independentemente de onde vivem tomadores e depositantes.
+      3. Municípios sem agência bancária não aparecem no arquivo: o valor é **ausente**, não zero.
+      4. O fechamento de agências e a digitalização bancária alteram a distribuição territorial dos
+         registros ao longo do tempo sem que haja mudança correspondente no acesso ao crédito.
+      5. Os verbetes de financiamentos rurais foram consolidados ao longo do tempo; o Atlas soma os
+         verbetes 163 a 166 quando presentes.
+
+      Agregados por UF, região e Brasil são somas dos municípios presentes no arquivo.
+  - id: icr
+    title: Índice de Crédito sobre Depósitos (ICR)
+    body: |
+      ICR = (Estoque de operações de crédito / Estoque de depósitos totais) × 100, com dados do ESTBAN
+      (posição de dezembro).
+
+      O indicador descreve a relação entre os saldos de crédito e de depósitos **registrados nas agências
+      de um território**. Ele **não** mede a proporção dos depósitos locais emprestada à população local:
+
+      - crédito e depósitos são contabilizados na agência, não no domicílio do cliente;
+      - bancos financiam crédito também com capital próprio, captações no mercado e recursos direcionados
+        (poupança, FGTS, fundos constitucionais, BNDES), de modo que ICR > 100 é comum;
+      - crédito rural e imobiliário com recursos direcionados eleva o ICR de municípios agrícolas;
+      - cooperativas de crédito, relevantes em muitos municípios do Sul e do Centro-Oeste, não são cobertas;
+      - quando os depósitos são nulos, o índice é indefinido (ausente).
+
+      Use o ICR para investigar padrões espaciais e temporais de intermediação financeira, sempre em
+      conjunto com crédito e depósitos per capita.
+  - id: deflacionamento
+    title: Deflacionamento pelo IPCA
+    body: |
+      Valores monetários nominais podem ser convertidos a preços constantes pelo IPCA (IBGE; série SGS 433
+      do Banco Central). O Atlas encadeia a variação mensal em um número-índice (dez/1993 = 100) e aplica:
+
+      - **fluxos anuais** (PIB, VAB): média anual do índice;
+      - **estoques em fim de período** (crédito, depósitos): índice de dezembro;
+      - séries mensais: índice do mês.
+
+      O ano-base é o último ano com índice completo e é informado em cada resultado. O IPCA é um índice
+      nacional de preços ao consumidor: não capta diferenças regionais de preços nem a variação de preços
+      específica de cada setor produtivo.
+  - id: agregacao
+    title: Agregação territorial pelo Atlas
+    body: |
+      Quando a fonte não publica um nível territorial, indicadores aditivos (contagens e valores
+      monetários) são somados a partir dos municípios e marcados como "agregado pelo Atlas". Se algum
+      município do grupo tiver valor suprimido por sigilo ou não disponível, o agregado fica ausente — exceto
+      quando o município ainda não estava instalado naquele ano (seu território pertencia ao município de origem). Razões, taxas e
+      índices nunca são agregados por soma ou média simples: são recalculados a partir dos componentes.
+  - id: domicilios_condicao
+    title: Condição de ocupação dos domicílios
+    body: |
+      Censos Demográficos 2010 (SIDRA 3219: domicílios particulares permanentes) e 2022 (SIDRA 9930:
+      domicílios particulares permanentes ocupados). "Próprio" reúne imóveis quitados e em aquisição.
+      A proporção de domicílios próprios indica a **difusão da propriedade habitacional**, não o valor do
+      patrimônio imobiliário: não informa preços, qualidade, regularidade fundiária nem dívidas associadas.
+      Há diferenças de conceito e de categorias entre 2010 e 2022; compare com cautela.
+  - id: gini_fundiario
+    title: Índice de Gini da distribuição da área dos estabelecimentos agropecuários (estimativa)
+    version: "2"
+    body: |
+      Estimativa do Atlas com dados do Censo Agropecuário 2017 (SIDRA 6754): número e área dos
+      estabelecimentos por 18 grupos de área total. O índice é calculado pela curva de Lorenz com
+      interpolação linear entre os grupos (regra do trapézio).
+
+      - Supõe igualdade dentro de cada grupo, portanto é um **limite inferior** do Gini verdadeiro;
+      - "Produtor sem área" é excluído;
+      - **sigilo estatístico**: no nível municipal o IBGE suprime a área de grupos com poucos informantes
+        (cerca de 96% dos municípios têm ao menos um grupo suprimido), mas divulga o número de
+        estabelecimentos de todos os grupos e a área total. Nesses casos o Atlas faz uma *imputação
+        residual*: a diferença entre a área total e a soma dos grupos divulgados é distribuída entre os
+        grupos suprimidos proporcionalmente a (nº de estabelecimentos × ponto médio do grupo; 20.000 ha
+        para o grupo aberto de 10.000 ha e mais). A soma das áreas é preservada exatamente; a incerteza
+        recai sobre a repartição entre os grupos suprimidos. Essas observações recebem a marca `imp`;
+      - com menos de 3 grupos com estabelecimentos, ou sem área total divulgada, não há estimativa;
+      - mede a concentração entre **estabelecimentos** (unidades de produção), não entre proprietários:
+        um proprietário pode deter vários estabelecimentos e um estabelecimento pode ser arrendado.
+  - id: sgs
+    title: Séries monetárias e financeiras nacionais (SGS/BCB)
+    body: |
+      Séries mensais do Sistema Gerenciador de Séries Temporais do Banco Central, identificadas pelo
+      código SGS em cada indicador. Agregados monetários seguem a metodologia vigente ("Novo") e as
+      estatísticas de crédito seguem a metodologia iniciada em março de 2011 (saldos desde 2007); por
+      isso várias séries começam depois de 1994. Valores publicados em R$ mil ou R$ milhões são
+      armazenados em reais.
+  - id: cooperativas
+    title: Cooperativas de crédito — pontos de atendimento e carteira de crédito
+    body: |
+      O ESTBAN, base dos indicadores territoriais de crédito e depósitos do Atlas, não cobre cooperativas
+      de crédito. Não existe base pública com saldos de cooperativas por município. O Atlas reduz essa
+      lacuna com duas fontes do Banco Central, que respondem a perguntas diferentes:
+
+      **1. Pontos de atendimento de cooperativas, por município** (cadastro de postos de atendimento,
+      posição de dezembro). Conta os postos em funcionamento cujo segmento é "Cooperativa de Crédito".
+
+      - Mede **presença física**, não volume de crédito ou de depósitos;
+      - as sedes das cooperativas não constam do arquivo de postos, de modo que a contagem subestima os
+        pontos de atendimento em cerca de uma unidade por cooperativa singular;
+      - bancos cooperativos são bancos e não entram na contagem;
+      - arquivos antigos não trazem o segmento de cooperativas (ano sem dado, não zero) ou não trazem o
+        código IBGE do município — nesses anos a associação é feita por nome e UF, e os postos não
+        associados são registrados no histórico de cargas;
+      - município sem posto de cooperativa não aparece no arquivo: o valor é ausente.
+
+      **2. Carteira de crédito por UF do tomador e tipo de instituição** (SCR.data, dezembro). Soma a
+      carteira ativa de todas as operações informadas ao Sistema de Informações de Crédito, separando
+      bancos, cooperativas e instituições não bancárias.
+
+      - A localização é a **UF do tomador**, não a da agência — diferente do ESTBAN, com o qual os valores
+        não são comparáveis nem somáveis;
+      - cobre todo o Sistema Financeiro Nacional, mas só existe por UF, de 2012 em diante;
+      - o SCR identifica operações de clientes acima de um valor mínimo de responsabilidade, que foi
+        reduzido ao longo do tempo; a ampliação da cobertura afeta a comparação entre os primeiros anos e
+        os mais recentes;
+      - a participação das cooperativas (`part_credito_coop`) indica onde o ICR e o crédito per capita do
+        ESTBAN mais subestimam o sistema financeiro local.
+
+      Depósitos em cooperativas por território continuam sem fonte pública.
+
+
+  - id: agropecuaria
+    title: Produção agrícola e pecuária municipal (PAM e PPM)
+    body: |
+      Produção Agrícola Municipal (SIDRA 5457) e Pesquisa da Pecuária Municipal (SIDRA 3939 e 74), do IBGE,
+      de 1995 em diante.
+
+      - Valor da produção a preços correntes (original em mil reais, armazenado em reais). É valor bruto da
+        produção, não valor adicionado: não desconta insumos e não é comparável ao VAB da agropecuária;
+      - área colhida em hectares; rebanho bovino em cabeças (efetivo em 31/12); leite em litros;
+      - o símbolo "-" do IBGE é zero absoluto (o município não produz) e é armazenado como zero; "..." é
+        dado não disponível e fica ausente;
+      - são levantamentos por estimativa de agentes locais, revistos pelo IBGE; os Censos Agropecuários podem
+        divergir.
+  - id: cempre
+    title: Empresas, pessoal ocupado e salários (CEMPRE)
+    body: |
+      Cadastro Central de Empresas do IBGE: tabela SIDRA 1685 (2006–2021) e 9528 (2022 em diante).
+
+      - Cobre organizações formais com CNPJ ativo; **não inclui** trabalho informal, por conta própria sem
+        CNPJ nem emprego doméstico;
+      - pessoal ocupado e salários são atribuídos ao município da **unidade local** (onde a pessoa trabalha),
+        não ao de residência;
+      - "salários e outras remunerações" é o total pago no ano, a preços correntes;
+      - o salário médio mensal em reais só é publicado até 2021; a remuneração anual média por assalariado
+        (massa salarial ÷ pessoal assalariado) é calculada pelo Atlas para toda a série;
+      - a série troca de tabela em 2022: variações entre 2021 e 2022 podem refletir mudança de método;
+      - em municípios pequenos, células com poucos informantes são suprimidas (sigilo) e ficam ausentes.
+  - id: registro_civil
+    title: Nascimentos e óbitos (Estatísticas do Registro Civil)
+    body: |
+      Nascidos vivos (SIDRA 2612) e óbitos (SIDRA 2654) ocorridos no ano, pelo município de residência da mãe
+      ou do falecido, de 2003 em diante.
+
+      - Contam apenas eventos **registrados em cartório**: há sub-registro e registro tardio, mais intensos nos
+        primeiros anos da série e em partes do Norte e do Nordeste. Taxas baixas podem refletir falta de
+        registro, não menos nascimentos ou mortes;
+      - as taxas brutas de natalidade e mortalidade dividem os eventos pela população do mesmo ano (ver
+        *Série de população residente*) e não são padronizadas por idade — municípios mais envelhecidos têm
+        mortalidade bruta maior sem que isso indique pior saúde;
+      - em municípios pequenos as taxas oscilam muito de um ano para outro;
+      - para análise de saúde, as bases do DATASUS (SIM/SINASC) são a referência; ainda não estão integradas.
+  - id: censo_2022
+    title: Indicadores do Censo Demográfico 2022
+    body: |
+      Resultados do universo do Censo 2022 (SIDRA 9543, 9515, 6803, 6805, 6892, 9923, 9605), por município.
+
+      - Taxa de alfabetização: pessoas de 15 anos ou mais que sabem ler e escrever;
+      - índice de envelhecimento, idade mediana e razão de sexo: conforme publicados pelo IBGE (tabela 9515);
+      - saneamento: domicílios particulares permanentes ocupados ligados à rede geral de água, com esgotamento
+        por rede geral, rede pluvial ou fossa ligada à rede, e com lixo coletado. As proporções são os
+        percentuais publicados pelo IBGE em cada tabela (sobre o total daquela tabela). "Ligado à rede"
+        descreve a existência da ligação, não a regularidade nem a qualidade do serviço;
+      - população urbana: 2000 e 2010 pela tabela 202 e 2022 pela tabela 9923. A classificação de áreas urbanas
+        segue a legislação municipal vigente em cada censo;
+      - cor ou raça: autodeclaração; "população negra" soma pretos e pardos, convenção usual nas estatísticas
+        brasileiras.
+  - id: pnadc
+    title: Mercado de trabalho e renda por UF (PNAD Contínua anual)
+    body: |
+      Taxa de desocupação (SIDRA 4562), índice de Gini do rendimento domiciliar per capita (7435) e rendimento
+      médio mensal real domiciliar per capita (7531), de 2012 em diante, para Brasil, grandes regiões e UFs.
+
+      - É pesquisa **amostral**: cada estimativa tem erro de amostragem, maior nas UFs com menos domicílios na
+        amostra; diferenças pequenas entre UFs ou entre anos podem não ser significativas;
+      - não há resultado municipal;
+      - o rendimento já é publicado em valores reais (preços médios do último ano da série): o Atlas não aplica
+        deflacionamento adicional, e a série inteira é revista a cada divulgação;
+      - o Gini mede a desigualdade de rendimento entre pessoas, diferente das medidas de desigualdade entre
+        territórios calculadas no Laboratório.
+

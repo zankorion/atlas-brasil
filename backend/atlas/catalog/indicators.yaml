@@ -1,0 +1,1514 @@
+# Catálogo de indicadores.
+# nature: observado (publicado pela fonte) | derivado (fórmula sobre observados) | estimado (método próprio)
+# origem: instruções para os pipelines de ingestão (não vão para o banco).
+dimensions:
+  - {id: demografia, name: Demografia, status: parcial}
+  - {id: economia, name: Economia produtiva, status: mvp}
+  - {id: trabalho, name: Trabalho e renda, status: parcial}
+  - {id: educacao, name: Educação, status: parcial}
+  - {id: saude, name: Saúde, status: planejado}
+  - {id: habitacao, name: Habitação e infraestrutura, status: parcial}
+  - {id: financas_publicas, name: Estado e finanças públicas, status: planejado}
+  - {id: territorio, name: Território e meio ambiente, status: planejado}
+  - {id: financeiro, name: Sistema monetário e financeiro, status: mvp}
+  - {id: patrimonio, name: Patrimônio e riqueza, status: mvp}
+  - {id: politica, name: Política e comportamento eleitoral, status: planejado}
+
+defaults:
+  levels: [BR, REGIAO, UF, RGINT, RGI, MUN]
+  frequency: A
+
+indicators:
+  # ---------------- Demografia (suporte às normalizações) ----------------
+  - id: populacao
+    name: População residente
+    dimension: demografia
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: sidra_6579
+    methodology: populacao_composta
+    description: População residente segundo censos (2000, 2010, 2022) e estimativas anuais do IBGE.
+    limitations: Mistura contagens censitárias e estimativas; há descontinuidades em 2010 e 2022. Sem dados para 1995–1999, 2007 e 2023.
+    breaks:
+      - {period: "2010", note: "Censo Demográfico 2010 (contagem) — anos vizinhos são estimativas."}
+      - {period: "2022", note: "Censo Demográfico 2022 (contagem) — estimativas de 2011–2021 partiam do Censo 2010."}
+  - id: area_km2
+    name: Área territorial
+    dimension: demografia
+    unit: km2
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    dataset: sidra_4714
+    methodology: malha_territorial
+    description: Área da unidade territorial divulgada com o Censo 2022.
+    origem: {tipo: sidra, tabela: "4714", variavel: "6318", periodos: ["2022"]}
+  - id: densidade
+    name: Densidade demográfica
+    dimension: demografia
+    unit: hab_km2
+    nature: derivado
+    value_kind: razao
+    formula: "populacao / ultimo(area_km2)"
+    dataset: atlas_derivados
+    methodology: per_capita
+    description: População do ano dividida pela área territorial vigente (2022).
+    limitations: Usa a área de 2022 para todos os anos; municípios com alteração de limites têm densidade histórica imprecisa.
+  - id: crescimento_pop
+    name: Crescimento populacional anual
+    dimension: demografia
+    unit: pct
+    nature: derivado
+    value_kind: taxa
+    formula: "(populacao / lag(populacao, 1) - 1) * 100"
+    dataset: atlas_derivados
+    methodology: populacao_composta
+    description: Variação percentual da população em relação ao ano anterior.
+    limitations: Variações entre ano de estimativa e ano de censo (2010, 2022) refletem também a troca de método; ausente quando o ano anterior não tem dado.
+
+  # ---------------- Economia produtiva ----------------
+  - id: pib_nominal
+    name: Produto Interno Bruto a preços correntes
+    short_name: PIB
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    description: PIB dos Municípios a preços correntes.
+    origem: {tipo: sidra, tabela: "5938", variavel: "37", escala: 1000}
+  - id: pib_per_capita
+    name: PIB per capita
+    dimension: economia
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    stock_flow: fluxo
+    formula: "pib_nominal / populacao"
+    dataset: atlas_derivados
+    methodology: per_capita
+    description: PIB a preços correntes dividido pela população residente do mesmo ano.
+    limitations: Calculado pelo Atlas com a série de população composta; pode diferir do PIB per capita oficial do IBGE, que usa estimativas próprias retroprojetadas. Ausente em 2007 e 2023 (sem população).
+  - id: vab_total
+    name: Valor adicionado bruto total
+    short_name: VAB total
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    origem: {tipo: sidra, tabela: "5938", variavel: "498", escala: 1000}
+  - id: vab_agro
+    name: Valor adicionado bruto da agropecuária
+    short_name: VAB agropecuária
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    origem: {tipo: sidra, tabela: "5938", variavel: "513", escala: 1000}
+  - id: vab_industria
+    name: Valor adicionado bruto da indústria
+    short_name: VAB indústria
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    origem: {tipo: sidra, tabela: "5938", variavel: "517", escala: 1000}
+  - id: vab_servicos
+    name: Valor adicionado bruto dos serviços (exclusive administração pública)
+    short_name: VAB serviços
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    origem: {tipo: sidra, tabela: "5938", variavel: "6575", escala: 1000}
+  - id: vab_adm
+    name: Valor adicionado bruto da administração pública
+    short_name: VAB adm. pública
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    description: Administração, defesa, educação e saúde públicas e seguridade social.
+    origem: {tipo: sidra, tabela: "5938", variavel: "525", escala: 1000}
+  - id: impostos_produtos
+    name: Impostos, líquidos de subsídios, sobre produtos
+    short_name: Impostos s/ produtos
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: sidra_5938
+    methodology: pib_municipal
+    origem: {tipo: sidra, tabela: "5938", variavel: "543", escala: 1000}
+  - id: part_agro
+    name: Participação da agropecuária no VAB
+    dimension: economia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(vab_agro, vab_total)"
+    dataset: atlas_derivados
+    methodology: pib_municipal
+  - id: part_industria
+    name: Participação da indústria no VAB
+    dimension: economia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(vab_industria, vab_total)"
+    dataset: atlas_derivados
+    methodology: pib_municipal
+  - id: part_servicos
+    name: Participação dos serviços no VAB
+    dimension: economia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(vab_servicos, vab_total)"
+    dataset: atlas_derivados
+    methodology: pib_municipal
+  - id: part_adm
+    name: Participação da administração pública no VAB
+    dimension: economia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(vab_adm, vab_total)"
+    dataset: atlas_derivados
+    methodology: pib_municipal
+    description: Indicador usual de dependência da economia local em relação ao setor público.
+
+  # ---------------- Sistema monetário e financeiro — territorial (ESTBAN) ----------------
+  - id: credito_total
+    name: Estoque de operações de crédito (ESTBAN)
+    short_name: Crédito
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Saldo das operações de crédito (verbete 160) das agências do território, posição de dezembro.
+    limitations: Só bancos com carteira comercial e caixas econômicas; saldo registrado na agência, não no domicílio do tomador. Município sem agência = ausente.
+  - id: credito_emprestimos
+    name: Empréstimos e títulos descontados (ESTBAN)
+    short_name: Empréstimos
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Verbete 161 — capital de giro, crédito pessoal, cheque especial e desconto de títulos; aproxima o crédito de curto prazo e ao consumo.
+  - id: credito_financiamentos
+    name: Financiamentos (ESTBAN)
+    short_name: Financiamentos
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Verbete 162 — financiamentos de bens, investimentos e exportações (exclui rurais e imobiliários).
+  - id: credito_rural
+    name: Financiamentos rurais (ESTBAN)
+    short_name: Crédito rural
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Soma dos verbetes 163 a 166 (custeio, investimento e comercialização agrícola e pecuária).
+    limitations: O detalhamento dos verbetes rurais mudou ao longo do tempo; o Atlas soma os verbetes 163–166 presentes em cada arquivo.
+  - id: credito_imobiliario
+    name: Financiamentos imobiliários (ESTBAN)
+    short_name: Crédito imobiliário
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Verbete 169.
+  - id: depositos_vista
+    name: Depósitos à vista (ESTBAN)
+    short_name: Depósitos à vista
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Soma dos verbetes 401 a 419 (setor público e setor privado).
+  - id: depositos_poupanca
+    name: Depósitos de poupança (ESTBAN)
+    short_name: Poupança
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Verbete 420.
+  - id: depositos_prazo
+    name: Depósitos a prazo (ESTBAN)
+    short_name: Depósitos a prazo
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Verbete 432.
+  - id: depositos_total
+    name: Estoque de depósitos bancários (ESTBAN)
+    short_name: Depósitos
+    dimension: financeiro
+    unit: brl
+    nature: derivado
+    value_kind: nominal
+    stock_flow: estoque
+    decimals: 0
+    formula: "depositos_vista + depositos_poupanca + depositos_prazo"
+    dataset: atlas_derivados
+    methodology: estban
+    description: Depósitos à vista + poupança + a prazo; exclui depósitos interfinanceiros.
+    limitations: Só bancos com carteira comercial e caixas econômicas; saldo registrado na agência, não no domicílio do depositante.
+  - id: agencias
+    name: Agências bancárias (ESTBAN)
+    short_name: Agências
+    dimension: financeiro
+    unit: agencias
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_estban
+    methodology: estban
+    description: Agências que entregaram o documento 4500 em dezembro.
+    limitations: Não inclui postos de atendimento, correspondentes bancários nem cooperativas de crédito.
+  - id: icr
+    name: Índice de Crédito sobre Depósitos (ICR)
+    short_name: ICR
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "pct(credito_total, depositos_total)"
+    dataset: atlas_derivados
+    methodology: icr
+    sort: -10
+    description: Estoque de crédito dividido pelo estoque de depósitos registrados nas agências do território, × 100.
+    limitations: Não representa a parcela dos depósitos locais emprestada à população local — ver metodologia.
+  - id: credito_pc
+    name: Crédito per capita
+    dimension: financeiro
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    stock_flow: estoque
+    formula: "credito_total / populacao"
+    dataset: atlas_derivados
+    methodology: estban
+  - id: depositos_pc
+    name: Depósitos per capita
+    dimension: financeiro
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    stock_flow: estoque
+    formula: "depositos_total / populacao"
+    dataset: atlas_derivados
+    methodology: estban
+  - id: credito_pib
+    name: Crédito em relação ao PIB (territorial)
+    short_name: Crédito/PIB
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "pct(credito_total, pib_nominal)"
+    dataset: atlas_derivados
+    methodology: estban
+    description: Estoque de crédito de dezembro (ESTBAN) sobre o PIB do ano.
+    limitations: Numerador cobre só parte do sistema financeiro e é localizado pela agência; não é comparável ao crédito/PIB nacional do BCB.
+  - id: depositos_pib
+    name: Depósitos em relação ao PIB (territorial)
+    short_name: Depósitos/PIB
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "pct(depositos_total, pib_nominal)"
+    dataset: atlas_derivados
+    methodology: estban
+  - id: agencias_100k
+    name: Agências bancárias por 100 mil habitantes
+    dimension: financeiro
+    unit: agencias_pc
+    nature: derivado
+    value_kind: razao
+    formula: "agencias / populacao * 100000"
+    dataset: atlas_derivados
+    methodology: estban
+  - id: part_credito_rural
+    name: Participação do crédito rural no crédito total
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(credito_rural, credito_total)"
+    dataset: atlas_derivados
+    methodology: estban
+  - id: part_credito_imobiliario
+    name: Participação do crédito imobiliário no crédito total
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(credito_imobiliario, credito_total)"
+    dataset: atlas_derivados
+    methodology: estban
+  - id: part_credito_emprestimos
+    name: Participação de empréstimos e títulos descontados no crédito total
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    formula: "part(credito_emprestimos, credito_total)"
+    dataset: atlas_derivados
+    methodology: estban
+
+  # ---------------- Sistema monetário e financeiro — nacional (SGS) ----------------
+  - id: selic
+    name: Taxa Selic acumulada no mês, anualizada (base 252)
+    short_name: Selic
+    dimension: financeiro
+    unit: pct_aa
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 4189}
+  - id: ipca_mensal
+    name: IPCA — variação mensal
+    dimension: financeiro
+    unit: pct_am
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    description: Índice Nacional de Preços ao Consumidor Amplo (IBGE), série SGS 433.
+    origem: {tipo: sgs, codigo: 433}
+  - id: ipca_12m
+    name: IPCA — acumulado em 12 meses
+    dimension: financeiro
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 13522}
+  - id: inpc_mensal
+    name: INPC — variação mensal
+    dimension: financeiro
+    unit: pct_am
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 188}
+  - id: ipca_indice
+    name: IPCA — número-índice encadeado (dez/1993 = 100)
+    dimension: financeiro
+    unit: indice
+    nature: derivado
+    value_kind: indice
+    frequency: M
+    levels: [BR]
+    decimals: 2
+    dataset: atlas_derivados
+    methodology: deflacionamento
+    description: Encadeamento das variações mensais do IPCA; base do deflacionamento do Atlas.
+  - id: juro_real
+    name: Juro real ex-post (Selic deflacionada pelo IPCA de 12 meses)
+    short_name: Juro real
+    dimension: financeiro
+    unit: pct_aa
+    nature: derivado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    formula: "((1 + selic / 100) / (1 + ipca_12m / 100) - 1) * 100"
+    dataset: atlas_derivados
+    methodology: sgs
+    limitations: Medida ex-post simples; não usa expectativas de inflação. Até jun/1995 o IPCA de 12 meses ainda incorpora a hiperinflação anterior ao Plano Real, o que torna o indicador sem significado econômico nesse intervalo.
+  - id: base_monetaria
+    name: Base monetária restrita (saldo em fim de período)
+    short_name: Base monetária
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 1788, escala: 1000}
+  - id: m1
+    name: Meios de pagamento — M1 (saldo em fim de período)
+    short_name: M1
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 27791, escala: 1000}
+  - id: m2
+    name: Meios de pagamento amplos — M2 (saldo em fim de período)
+    short_name: M2
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 27810, escala: 1000}
+  - id: m3
+    name: Meios de pagamento amplos — M3 (saldo em fim de período)
+    short_name: M3
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 27813, escala: 1000}
+  - id: m4
+    name: Meios de pagamento amplos — M4 (saldo em fim de período)
+    short_name: M4
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 27815, escala: 1000}
+  - id: credito_sfn
+    name: Saldo da carteira de crédito do SFN — total
+    short_name: Crédito SFN
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    description: Todo o Sistema Financeiro Nacional (inclui cooperativas e bancos de desenvolvimento), diferentemente do ESTBAN.
+    origem: {tipo: sgs, codigo: 20539, escala: 1000000}
+  - id: credito_sfn_pf
+    name: Saldo da carteira de crédito do SFN — pessoas físicas
+    short_name: Crédito PF
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 20541, escala: 1000000}
+  - id: credito_sfn_pj
+    name: Saldo da carteira de crédito do SFN — pessoas jurídicas
+    short_name: Crédito PJ
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 20540, escala: 1000000}
+  - id: credito_sfn_pib
+    name: Saldo da carteira de crédito do SFN em relação ao PIB
+    short_name: Crédito SFN/PIB
+    dimension: financeiro
+    unit: pct
+    nature: observado
+    value_kind: razao
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 20622}
+  - id: concessoes_credito
+    name: Concessões de crédito — total
+    short_name: Concessões
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    frequency: M
+    levels: [BR]
+    decimals: 0
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 20631, escala: 1000000}
+  - id: inadimplencia
+    name: Inadimplência da carteira de crédito — total
+    short_name: Inadimplência
+    dimension: financeiro
+    unit: pct
+    nature: observado
+    value_kind: razao
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    description: Percentual da carteira com atraso superior a 90 dias.
+    origem: {tipo: sgs, codigo: 21082}
+  - id: spread
+    name: Spread médio das operações de crédito — total
+    short_name: Spread bancário
+    dimension: financeiro
+    unit: pp
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 20783}
+  - id: cambio
+    name: Taxa de câmbio R$/US$ — venda, média mensal
+    short_name: Câmbio
+    dimension: financeiro
+    unit: brl_usd
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    decimals: 4
+    dataset: bcb_sgs
+    methodology: sgs
+    origem: {tipo: sgs, codigo: 3698}
+
+  # ---------------- Patrimônio e riqueza ----------------
+  - id: domicilios_total
+    name: Domicílios particulares permanentes
+    short_name: Domicílios
+    dimension: patrimonio
+    unit: domicilios
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: sidra_9930
+    methodology: domicilios_condicao
+    breaks:
+      - {period: "2022", note: "Em 2022 a tabela refere-se a domicílios particulares permanentes ocupados."}
+  - id: domicilios_proprios
+    name: Domicílios próprios
+    dimension: patrimonio
+    unit: domicilios
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: sidra_9930
+    methodology: domicilios_condicao
+    description: Domicílios próprios de algum morador (quitados ou em aquisição).
+  - id: domicilios_alugados
+    name: Domicílios alugados
+    dimension: patrimonio
+    unit: domicilios
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: sidra_9930
+    methodology: domicilios_condicao
+  - id: pct_domicilios_proprios
+    name: Proporção de domicílios próprios
+    dimension: patrimonio
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [BR, REGIAO, UF, MUN]
+    formula: "pct(domicilios_proprios, domicilios_total)"
+    dataset: atlas_derivados
+    methodology: domicilios_condicao
+    limitations: Indicador indireto de difusão da propriedade habitacional; não mede valor patrimonial nem dívida.
+  - id: pct_domicilios_alugados
+    name: Proporção de domicílios alugados
+    dimension: patrimonio
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [BR, REGIAO, UF, MUN]
+    formula: "pct(domicilios_alugados, domicilios_total)"
+    dataset: atlas_derivados
+    methodology: domicilios_condicao
+  - id: estab_agro
+    name: Estabelecimentos agropecuários
+    dimension: patrimonio
+    unit: estabelecimentos
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: sidra_6754
+    methodology: gini_fundiario
+    description: Número de estabelecimentos agropecuários no Censo Agropecuário 2017.
+  - id: area_estab_agro
+    name: Área dos estabelecimentos agropecuários
+    dimension: patrimonio
+    unit: ha
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: sidra_6754
+    methodology: gini_fundiario
+  - id: area_media_estab
+    name: Área média dos estabelecimentos agropecuários
+    dimension: patrimonio
+    unit: ha_estab
+    nature: derivado
+    value_kind: razao
+    levels: [BR, REGIAO, UF, MUN]
+    formula: "area_estab_agro / estab_agro"
+    dataset: atlas_derivados
+    methodology: gini_fundiario
+  - id: gini_fundiario
+    name: Gini da área dos estabelecimentos agropecuários (estimativa)
+    short_name: Gini fundiário
+    dimension: patrimonio
+    unit: razao
+    nature: estimado
+    value_kind: indice
+    decimals: 3
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: atlas_derivados
+    methodology: gini_fundiario
+    description: Concentração da área entre estabelecimentos agropecuários (0 = igualdade; 1 = concentração máxima).
+    limitations: Estimativa por dados agrupados (limite inferior); mede estabelecimentos, não proprietários; na maioria dos municípios usa imputação residual das áreas sob sigilo estatístico (ver metodologia).
+
+  # ---------------- Cooperativas de crédito ----------------
+  - id: cooperativas_credito
+    name: Cooperativas de crédito — pontos de atendimento
+    short_name: Postos de cooperativas
+    dimension: financeiro
+    unit: agencias
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: bcb_postos
+    methodology: cooperativas
+    description: Postos de atendimento de cooperativas de crédito em funcionamento, posição de dezembro.
+    limitations: Mede presença física, não volume de crédito ou depósitos; não inclui as sedes das cooperativas; município sem posto = ausente.
+  - id: coop_postos_100k
+    name: Postos de cooperativas de crédito por 100 mil habitantes
+    short_name: Postos de cooperativas / 100 mil hab.
+    dimension: financeiro
+    unit: agencias_pc
+    nature: derivado
+    value_kind: razao
+    formula: "cooperativas_credito / populacao * 100000"
+    dataset: atlas_derivados
+    methodology: cooperativas
+  - id: credito_scr
+    name: Carteira de crédito por UF do tomador — todo o SFN (SCR)
+    short_name: Crédito SCR
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF]
+    dataset: bcb_scr
+    methodology: cooperativas
+    description: Carteira ativa de dezembro de todas as instituições, localizada pela UF do tomador.
+    limitations: Só por UF, de 2012 em diante; localização pelo tomador (não comparável ao ESTBAN, localizado pela agência).
+  - id: credito_scr_coop
+    name: Carteira de crédito das cooperativas por UF do tomador (SCR)
+    short_name: Crédito de cooperativas
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF]
+    dataset: bcb_scr
+    methodology: cooperativas
+    limitations: Só por UF, de 2012 em diante; não há abertura municipal. Quando o arquivo da fonte vem sem o tipo de instituição (caso de dez/2025 na carga de nov/2026), a abertura fica ausente nesse ano.
+  - id: credito_scr_bancos
+    name: Carteira de crédito do segmento bancário por UF do tomador (SCR)
+    short_name: Crédito bancário (SCR)
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF]
+    dataset: bcb_scr
+    methodology: cooperativas
+  - id: part_credito_coop
+    name: Participação das cooperativas na carteira de crédito (SCR)
+    short_name: Cooperativas / crédito total
+    dimension: financeiro
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    levels: [BR, REGIAO, UF]
+    formula: "part(credito_scr_coop, credito_scr)"
+    dataset: atlas_derivados
+    methodology: cooperativas
+    description: Parcela da carteira de crédito da UF concedida por cooperativas — indica onde o ESTBAN mais subestima o sistema financeiro local.
+    limitations: Ausente nos anos em que o arquivo da fonte não traz o tipo de instituição (dez/2025 na carga de nov/2026). Localização pela UF do tomador; não comparável ao ESTBAN.
+  - id: credito_scr_pc
+    name: Crédito per capita por UF do tomador (SCR)
+    short_name: Crédito SCR per capita
+    dimension: financeiro
+    unit: brl_pc
+    nature: derivado
+    value_kind: nominal
+    stock_flow: estoque
+    levels: [BR, REGIAO, UF]
+    formula: "credito_scr / populacao"
+    dataset: atlas_derivados
+    methodology: cooperativas
+
+  # ---------------- IBGE: demografia (Censo 2022 e Registro Civil) ----------------
+
+  - id: pop_urbana
+    name: População urbana
+    dimension: demografia
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: População residente em situação urbana nos Censos de 2000, 2010 e 2022.
+    origem:
+      - {tipo: sidra, tabela: "202", variavel: "93", classificacao: "2[0]|1[1]", periodos: ["2000", "2010"]}
+      - {tipo: sidra, tabela: "9923", variavel: "93", classificacao: "1[1]", periodos: ["2022"]}
+
+  - id: taxa_urbanizacao
+    name: Taxa de urbanização
+    dimension: demografia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    stock_flow: na
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: atlas_derivados
+    methodology: censo_2022
+    formula: "part(pop_urbana, populacao)"
+    description: População urbana em % da população total, nos anos de censo.
+    limitations: A delimitação do que é urbano segue a legislação municipal de cada época.
+
+  - id: pop_negra
+    name: População preta ou parda
+    dimension: demografia
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Pessoas autodeclaradas pretas ou pardas nos Censos de 2010 e 2022.
+    origem: {tipo: sidra, tabela: "9605", variavel: "93", classificacao: "86[2777,2779]", soma: true}
+
+  - id: pct_pop_negra
+    name: Proporção de população preta ou parda
+    dimension: demografia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    stock_flow: na
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: atlas_derivados
+    methodology: censo_2022
+    formula: "part(pop_negra, populacao)"
+
+  - id: indice_envelhecimento
+    name: Índice de envelhecimento
+    dimension: demografia
+    unit: razao
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Relação entre a população idosa e a população jovem, conforme publicado pelo IBGE para 2022 (idosos por 100 crianças e adolescentes).
+    origem: {tipo: sidra, tabela: "9515", variavel: "10612"}
+
+  - id: idade_mediana
+    name: Idade mediana
+    dimension: demografia
+    unit: anos
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Idade que divide a população em duas metades (Censo 2022).
+    origem: {tipo: sidra, tabela: "9515", variavel: "10613"}
+
+  - id: razao_sexo
+    name: Razão de sexo
+    dimension: demografia
+    unit: razao
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Homens para cada 100 mulheres (Censo 2022).
+    origem: {tipo: sidra, tabela: "9515", variavel: "8845"}
+
+  - id: nascidos_vivos
+    name: Nascidos vivos
+    dimension: demografia
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_registro_civil
+    methodology: registro_civil
+    description: Nascidos vivos ocorridos e registrados no ano, por município de residência da mãe.
+    limitations: Só eventos registrados em cartório; há sub-registro, maior no início da série.
+    origem: {tipo: sidra, tabela: "2612", variavel: "218", classificacao: "235[0]|2[0]|237[0]|238[0]|240[0]", lote: 1}
+
+  - id: obitos
+    name: Óbitos
+    dimension: demografia
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_registro_civil
+    methodology: registro_civil
+    description: Óbitos ocorridos e registrados no ano, por município de residência do falecido.
+    limitations: Só eventos registrados em cartório; há sub-registro, maior no início da série.
+    origem: {tipo: sidra, tabela: "2654", variavel: "343", classificacao: "244[0]|1836[0]|2[0]|260[0]|257[0]", lote: 1}
+
+  - id: taxa_natalidade
+    name: Taxa bruta de natalidade
+    dimension: demografia
+    unit: por_mil
+    nature: derivado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    dataset: atlas_derivados
+    methodology: registro_civil
+    formula: "nascidos_vivos / populacao * 1000"
+    description: Nascidos vivos por mil habitantes.
+    limitations: Afetada pelo sub-registro de nascimentos e pela série de população; ausente nos anos sem população.
+
+  - id: taxa_mortalidade
+    name: Taxa bruta de mortalidade
+    dimension: demografia
+    unit: por_mil
+    nature: derivado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    dataset: atlas_derivados
+    methodology: registro_civil
+    formula: "obitos / populacao * 1000"
+    description: Óbitos por mil habitantes.
+    limitations: Não padronizada por idade — populações mais velhas têm taxa bruta maior. Afetada pelo sub-registro.
+
+  - id: saldo_vegetativo
+    name: Saldo vegetativo (nascimentos menos óbitos)
+    short_name: Saldo vegetativo
+    dimension: demografia
+    unit: pessoas
+    nature: derivado
+    value_kind: quantidade
+    stock_flow: fluxo
+    decimals: 0
+    dataset: atlas_derivados
+    methodology: registro_civil
+    formula: "nascidos_vivos - obitos"
+
+  # ---------------- IBGE: agropecuária (PAM e PPM) ----------------
+
+  - id: agro_valor_producao
+    name: Valor da produção agrícola (lavouras temporárias e permanentes)
+    short_name: Valor da produção agrícola
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_pam
+    methodology: agropecuaria
+    limitations: Valor bruto da produção, não valor adicionado.
+    origem: {tipo: sidra, tabela: "5457", variavel: "215", classificacao: "782[0]", escala: 1000}
+
+  - id: agro_area_colhida
+    name: Área colhida das lavouras
+    dimension: economia
+    unit: ha
+    nature: observado
+    value_kind: quantidade
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_pam
+    methodology: agropecuaria
+    origem: {tipo: sidra, tabela: "5457", variavel: "216", classificacao: "782[0]"}
+
+  - id: agro_valor_ha
+    name: Valor da produção agrícola por hectare colhido
+    dimension: economia
+    unit: brl_ha
+    nature: derivado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    dataset: atlas_derivados
+    methodology: agropecuaria
+    formula: "agro_valor_producao / agro_area_colhida"
+
+  - id: agro_valor_soja
+    name: Valor da produção de soja
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_pam
+    methodology: agropecuaria
+    origem: {tipo: sidra, tabela: "5457", variavel: "215", classificacao: "782[40124]", escala: 1000}
+
+  - id: agro_valor_milho
+    name: Valor da produção de milho
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_pam
+    methodology: agropecuaria
+    origem: {tipo: sidra, tabela: "5457", variavel: "215", classificacao: "782[40122]", escala: 1000}
+
+  - id: agro_valor_cana
+    name: Valor da produção de cana-de-açúcar
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_pam
+    methodology: agropecuaria
+    origem: {tipo: sidra, tabela: "5457", variavel: "215", classificacao: "782[40106]", escala: 1000}
+
+  - id: agro_valor_cafe
+    name: Valor da produção de café
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_pam
+    methodology: agropecuaria
+    origem: {tipo: sidra, tabela: "5457", variavel: "215", classificacao: "782[40139]", escala: 1000}
+
+  - id: part_soja
+    name: Participação da soja no valor da produção agrícola
+    dimension: economia
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    stock_flow: na
+    dataset: atlas_derivados
+    methodology: agropecuaria
+    formula: "part(agro_valor_soja, agro_valor_producao)"
+
+  - id: rebanho_bovino
+    name: Rebanho bovino
+    dimension: economia
+    unit: cabecas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: ibge_ppm
+    methodology: agropecuaria
+    description: Efetivo de bovinos em 31 de dezembro.
+    origem: {tipo: sidra, tabela: "3939", variavel: "105", classificacao: "79[2670]"}
+
+  - id: leite_producao
+    name: Produção de leite
+    dimension: economia
+    unit: litros
+    nature: observado
+    value_kind: quantidade
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_ppm
+    methodology: agropecuaria
+    origem: {tipo: sidra, tabela: "74", variavel: "106", classificacao: "80[2682]", escala: 1000}
+
+  - id: pecuaria_valor_producao
+    name: Valor da produção de origem animal
+    dimension: economia
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_ppm
+    methodology: agropecuaria
+    description: Leite, ovos, mel, lã e casulos; não inclui abate.
+    limitations: Não inclui o valor do abate de animais.
+    origem: {tipo: sidra, tabela: "74", variavel: "215", classificacao: "80[0]", escala: 1000}
+
+  # ---------------- IBGE: empresas, emprego formal e salários (CEMPRE) ----------------
+
+  - id: unidades_locais
+    name: Unidades locais de empresas e outras organizações
+    short_name: Unidades locais
+    dimension: economia
+    unit: unidades_locais
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: ibge_cempre
+    methodology: cempre
+    breaks:
+      - {period: "2022", note: "A partir de 2022 os dados vêm de outra tabela do IBGE (SIDRA 9528); pode haver descontinuidade em relação a 2021."}
+    origem:
+      - {tipo: sidra, tabela: "1685", variavel: "706"}
+      - {tipo: sidra, tabela: "9528", variavel: "706", classificacao: "12762[117897]"}
+
+  - id: pessoal_ocupado
+    name: Pessoal ocupado em organizações formais
+    short_name: Pessoal ocupado (formal)
+    dimension: trabalho
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: ibge_cempre
+    methodology: cempre
+    description: Pessoal ocupado total em 31/12, no município da unidade local.
+    limitations: Só organizações com CNPJ; exclui trabalho informal. Local de trabalho, não de residência.
+    breaks:
+      - {period: "2022", note: "A partir de 2022 os dados vêm de outra tabela do IBGE (SIDRA 9528); pode haver descontinuidade em relação a 2021."}
+    origem:
+      - {tipo: sidra, tabela: "1685", variavel: "707"}
+      - {tipo: sidra, tabela: "9528", variavel: "707", classificacao: "12762[117897]"}
+
+  - id: pessoal_assalariado
+    name: Pessoal ocupado assalariado
+    dimension: trabalho
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: ibge_cempre
+    methodology: cempre
+    breaks:
+      - {period: "2022", note: "A partir de 2022 os dados vêm de outra tabela do IBGE (SIDRA 9528); pode haver descontinuidade em relação a 2021."}
+    origem:
+      - {tipo: sidra, tabela: "1685", variavel: "708"}
+      - {tipo: sidra, tabela: "9528", variavel: "708", classificacao: "12762[117897]"}
+
+  - id: massa_salarial
+    name: Salários e outras remunerações pagos no ano
+    short_name: Massa salarial
+    dimension: trabalho
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    additive: true
+    decimals: 0
+    dataset: ibge_cempre
+    methodology: cempre
+    breaks:
+      - {period: "2022", note: "A partir de 2022 os dados vêm de outra tabela do IBGE (SIDRA 9528); pode haver descontinuidade em relação a 2021."}
+    origem:
+      - {tipo: sidra, tabela: "1685", variavel: "662", escala: 1000}
+      - {tipo: sidra, tabela: "9528", variavel: "662", classificacao: "12762[117897]", escala: 1000}
+
+  - id: salario_medio
+    name: Salário médio mensal
+    dimension: trabalho
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_cempre
+    methodology: cempre
+    description: Salário médio mensal em reais das organizações formais do município.
+    limitations: Publicado pelo IBGE só até 2021.
+    origem: {tipo: sidra, tabela: "1685", variavel: "10143"}
+
+  - id: remuneracao_media_anual
+    name: Remuneração anual média por assalariado
+    dimension: trabalho
+    unit: brl_trab
+    nature: derivado
+    value_kind: nominal
+    stock_flow: fluxo
+    decimals: 0
+    dataset: atlas_derivados
+    methodology: cempre
+    formula: "massa_salarial / pessoal_assalariado"
+    description: Salários e outras remunerações do ano divididos pelo pessoal assalariado em 31/12.
+    limitations: Aproximação — o denominador é a posição de fim de ano, não a média do ano.
+
+  - id: ocupados_pop
+    name: Pessoal ocupado formal em % da população
+    dimension: trabalho
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    stock_flow: na
+    dataset: atlas_derivados
+    methodology: cempre
+    formula: "pct(pessoal_ocupado, populacao)"
+    limitations: Pode superar a população em municípios que concentram empregos de moradores de outros municípios.
+
+  - id: massa_salarial_pib
+    name: Massa salarial em % do PIB
+    dimension: trabalho
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    stock_flow: na
+    dataset: atlas_derivados
+    methodology: cempre
+    formula: "pct(massa_salarial, pib_nominal)"
+    description: Indicador indireto da participação do trabalho formal na renda gerada no município.
+    limitations: Só remunerações de organizações formais; não é a distribuição funcional da renda.
+
+  # ---------------- IBGE: trabalho e renda por UF (PNAD Contínua) ----------------
+
+  - id: taxa_desocupacao
+    name: Taxa de desocupação
+    dimension: trabalho
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF]
+    dataset: ibge_pnadc
+    methodology: pnadc
+    description: Pessoas de 14 anos ou mais desocupadas em % da força de trabalho (média anual).
+    limitations: Pesquisa amostral; só Brasil, regiões e UFs.
+    origem: {tipo: sidra, tabela: "4562", variavel: "4099"}
+
+  - id: gini_renda
+    name: Índice de Gini do rendimento domiciliar per capita
+    short_name: Gini da renda
+    dimension: trabalho
+    unit: razao
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 3
+    levels: [BR, REGIAO, UF]
+    dataset: ibge_pnadc
+    methodology: pnadc
+    limitations: Pesquisa amostral; só Brasil, regiões e UFs.
+    origem: {tipo: sidra, tabela: "7435", variavel: "10681"}
+
+  - id: renda_domiciliar_pc
+    name: Rendimento médio mensal real domiciliar per capita
+    short_name: Renda domiciliar per capita
+    dimension: trabalho
+    unit: brl
+    nature: observado
+    value_kind: real
+    stock_flow: fluxo
+    decimals: 0
+    levels: [BR, REGIAO, UF]
+    dataset: ibge_pnadc
+    methodology: pnadc
+    description: Em reais, a preços médios do último ano da série (já deflacionado pelo IBGE).
+    limitations: Pesquisa amostral; só Brasil, regiões e UFs. A série é revista a cada divulgação.
+    origem: {tipo: sidra, tabela: "7531", variavel: "10824", classificacao: "1019[49243]"}
+
+  # ---------------- IBGE: educação e saneamento (Censo 2022) ----------------
+
+  - id: taxa_alfabetizacao
+    name: Taxa de alfabetização (15 anos ou mais)
+    short_name: Alfabetização
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "9543", variavel: "2513", classificacao: "2[6794]|86[95251]|287[100362]"}
+
+  - id: dom_agua_rede
+    name: Domicílios ligados à rede geral de água
+    dimension: habitacao
+    unit: domicilios
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Domicílios particulares permanentes ocupados com ligação à rede geral de distribuição (Censo 2022).
+    origem: {tipo: sidra, tabela: "6803", variavel: "381", classificacao: "1821[72144,72145]", soma: true}
+
+  - id: dom_esgoto_rede
+    name: Domicílios com esgotamento por rede ou fossa ligada à rede
+    dimension: habitacao
+    unit: domicilios
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "6805", variavel: "381", classificacao: "11558[46290]"}
+
+  - id: dom_lixo_coletado
+    name: Domicílios com lixo coletado
+    dimension: habitacao
+    unit: domicilios
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "6892", variavel: "381", classificacao: "67[2520]"}
+
+  - id: pct_agua_rede
+    name: Proporção de domicílios ligados à rede geral de água
+    short_name: Água por rede geral
+    dimension: habitacao
+    unit: pct
+    nature: observado
+    value_kind: razao
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Percentual dos domicílios particulares permanentes ocupados, conforme publicado pelo IBGE na própria tabela (Censo 2022).
+    origem: {tipo: sidra, tabela: "6803", variavel: "1000381", classificacao: "1821[72144,72145]", soma: true}
+  - id: pct_esgoto_rede
+    name: Proporção de domicílios com esgotamento por rede
+    short_name: Esgoto por rede
+    dimension: habitacao
+    unit: pct
+    nature: observado
+    value_kind: razao
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Percentual dos domicílios particulares permanentes ocupados, conforme publicado pelo IBGE na própria tabela (Censo 2022).
+    origem: {tipo: sidra, tabela: "6805", variavel: "1000381", classificacao: "11558[46290]"}
+  - id: pct_lixo_coletado
+    name: Proporção de domicílios com lixo coletado
+    short_name: Coleta de lixo
+    dimension: habitacao
+    unit: pct
+    nature: observado
+    value_kind: razao
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Percentual dos domicílios particulares permanentes ocupados, conforme publicado pelo IBGE na própria tabela (Censo 2022).
+    origem: {tipo: sidra, tabela: "6892", variavel: "1000381", classificacao: "67[2520]"}
+  # ---------------- Planejados (sem dados — exibidos como tal) ----------------
+  - id: pix_transacoes
+    name: Transações Pix por município
+    dimension: financeiro
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    status: planejado
+    dataset: bcb_pix
+  - id: irpf_bens_direitos
+    name: Bens e direitos declarados ao IRPF
+    dimension: patrimonio
+    unit: brl
+    nature: observado
+    value_kind: nominal
+    status: planejado
+    dataset: rfb_irpf
+    limitations: Integração pendente; granularidade territorial a confirmar. Valores declarados são históricos (custo de aquisição) e cobrem apenas declarantes.

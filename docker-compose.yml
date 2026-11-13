@@ -1,0 +1,44 @@
+# Composição de produção/homologação: PostgreSQL + PostGIS, API e frontend.
+# ATENÇÃO: ainda não validada em execução (ver README).
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      ATLAS_DATABASE_URL: postgresql+psycopg://atlas:${POSTGRES_PASSWORD}@db:5432/atlas
+      ATLAS_DATA_DIR: /data
+      ATLAS_CORS_ORIGINS: ${ATLAS_CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - atlasdata:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  atlasdata:
