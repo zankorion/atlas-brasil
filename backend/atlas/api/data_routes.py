@@ -185,7 +185,7 @@ def compare(vars: str, codes: str, period: str | None = None, real: bool = False
 
 @router.get("/historical")
 def historical(var: str, p0: str, p1: str, level: str = "UF", real: bool = False, uf: str | None = None,
-               c: Ctx = Depends(ctx)):
+               method: str | None = None, k: int = Query(5, ge=2, le=9), c: Ctx = Depends(ctx)):
     """Comparador histórico: variação entre dois períodos por território, sinalizando mudanças de limites."""
     level = c.level(level)
     if p0 >= p1:
@@ -210,7 +210,13 @@ def historical(var: str, p0: str, p1: str, level: str = "UF", real: bool = False
         rows.append(dict(code=r["code"], name=r["name"], uf=ufs.get(r["uf"]) if level != "UF" else None, v0=v0, v1=v1,
                          abs=_clean(absd), pct=_clean(pct), cagr=_clean(cagr), boundary_change=changed.get(r["code"])))
     pcts = [r["pct"] for r in rows if r["pct"] is not None]
-    return dict(meta=v.meta, level=level, p0=p0, p1=p1, years=years, rows=rows, stats=core.describe(pcts),
+    # Limites de classe da própria variação (em % e em diferença absoluta), para o mapa obedecer à classificação escolhida.
+    breaks = None
+    if method:
+        if method not in ("jenks", "quantis", "iguais", "geometrico"):
+            raise HTTPException(422, f"Método de classificação inválido: {method}.")
+        breaks = dict(pct=core.classify(pcts, method, k), abs=core.classify([r["abs"] for r in rows if r["abs"] is not None], method, k))
+    return dict(breaks=breaks, method=method, meta=v.meta, level=level, p0=p0, p1=p1, years=years, rows=rows, stats=core.describe(pcts),
                 n_missing=sum(1 for r in rows if r["abs"] is None), n_boundary_changes=len(changed),
                 periods=c.periods(var, level))
 

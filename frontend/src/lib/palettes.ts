@@ -5,7 +5,11 @@ const ANCHORS: Record<string, string[]> = {
   violeta: ["#f1eef6", "#d4c9e6", "#b3a2d3", "#8f7cc0", "#6f55ab", "#54348f", "#3b1a6d"],
   divergente: ["#b2182b", "#e0755f", "#f6c4a9", "#f2efe8", "#a9cfe3", "#5a9dc8", "#2166ac"],
 };
+/** "auto" = sequencial azul-verde; divergente vermelho–azul quando a escala tem ponto central ou o mapa mostra variação. */
+export const AUTO_PALETTE = "auto";
+export const resolvePalette = (choice: string, diverging: boolean) => (choice !== AUTO_PALETTE ? choice : diverging ? "divergente" : "petroleo");
 export const PALETTES = [
+  { id: "auto", name: "Automática" },
   { id: "petroleo", name: "Azul-verde (sequencial)" },
   { id: "ambar", name: "Âmbar (sequencial)" },
   { id: "violeta", name: "Violeta (sequencial)" },
@@ -38,6 +42,8 @@ export type ContinuousScale = {
   clampLo: boolean; clampHi: boolean; ticks: number[]; gradient: string; nonPositive: number;
   /** Ponto central da escala divergente (null = escala sequencial). */
   center: number | null;
+  /** A escala logarítmica foi pedida mas não se aplica (valores negativos, centro <= 0 ou menos de dois valores positivos). */
+  logDenied: boolean;
 };
 
 function quantile(sorted: number[], q: number): number {
@@ -52,7 +58,7 @@ function quantile(sorted: number[], q: number): number {
  * - Com 30 ou mais territórios, o domínio vai do percentil 2 ao 98 para que poucos valores extremos
  *   não achatem as cores dos demais; valores além desses limites recebem a cor do extremo.
  * - Com `center`, a escala é divergente: o tom neutro fica exatamente no centro e cada lado vai do centro ao
- *   extremo daquele lado. A paleta divergente é usada qualquer que seja a paleta sequencial escolhida.
+ *   extremo daquele lado. A paleta é sempre a recebida: com uma sequencial, o tom do meio da rampa fica no centro.
  */
 export function continuousScale(values: number[], palette: string, mode: ScaleMode, center: number | null = null): ContinuousScale | null {
   const all = values.filter((v) => Number.isFinite(v)).sort((x, y) => x - y);
@@ -62,7 +68,8 @@ export function continuousScale(values: number[], palette: string, mode: ScaleMo
   const posMedian = positives.length ? quantile(positives, 0.5) : 0;
   const canLog = all[0] >= 0 && positives.length >= 2 && (center === null || center > 0);
   const kind = mode === "auto" ? (canLog && posMedian > 0 && all[all.length - 1] / posMedian >= 8 ? "log" : "linear")
-    : mode === "log" && center !== null && center <= 0 ? "linear" : mode;
+    : mode === "log" && canLog ? "log" : "linear";
+  const logDenied = mode === "log" && !canLog;
   const usable = kind === "log" ? all.filter((v) => v > 0) : all;
   if (!usable.length) return null;
   const robust = usable.length >= 30;
@@ -87,18 +94,35 @@ export function continuousScale(values: number[], palette: string, mode: ScaleMo
       return dHi > 0 ? 0.5 + 0.5 * Math.min(1, d / dHi) : 0.5;
     };
     return {
-      colorOf: (v) => rampAt("divergente", pos(v)), kind, lo: inv(c - dLo), hi: inv(c + dHi), center,
+      colorOf: (v) => rampAt(palette, pos(v)), kind, lo: inv(c - dLo), hi: inv(c + dHi), center, logDenied,
       clampLo: usable[0] < inv(c - dLo) || nonPositive > 0, clampHi: usable[usable.length - 1] > inv(c + dHi),
-      ticks: [inv(c - dLo), inv(c - dLo / 2), center, inv(c + dHi / 2), inv(c + dHi)], gradient: stops("divergente"), nonPositive,
+      ticks: [inv(c - dLo), inv(c - dLo / 2), center, inv(c + dHi / 2), inv(c + dHi)], gradient: stops(palette), nonPositive,
     };
   }
   const a = f(lo), span = f(hi) - a;
   const pos = (v: number) => (span <= 0 ? 0.5 : kind === "log" && v <= 0 ? 0 : (f(v) - a) / span);
   return {
-    colorOf: (v) => rampAt(palette, pos(v)), kind, lo, hi, center: null,
+    colorOf: (v) => rampAt(palette, pos(v)), kind, lo, hi, center: null, logDenied,
     clampLo: usable[0] < lo || nonPositive > 0, clampHi: usable[usable.length - 1] > hi,
     ticks: Array.from({ length: 5 }, (_, i) => inv(a + (span * i) / 4)), gradient: stops(palette), nonPositive,
   };
+}
+
+/**
+ * Cores das classes com a rampa divergente alinhada ao zero: classes inteiramente negativas ficam no lado
+ * inicial da rampa (mais intensas quanto mais distantes do zero), as inteiramente positivas no lado final, e a
+ * classe que contém o zero no tom neutro. Sem isso, a cor neutra cairia na classe do meio, qualquer que fosse o seu valor.
+ */
+export function divergingClassColors(name: string, breaks: number[]): string[] {
+  const k = breaks.length + 1;
+  const side = Array.from({ length: k }, (_, i) => {
+    const lo = i === 0 ? -Infinity : breaks[i - 1], hi = i === k - 1 ? Infinity : breaks[i];
+    return hi <= 0 ? -1 : lo >= 0 ? 1 : 0;
+  });
+  const nNeg = side.filter((x) => x < 0).length, nPos = side.filter((x) => x > 0).length;
+  let iNeg = 0, iPos = 0;
+  // negativos: de 0 (mais distante do zero) até perto de 0,4; positivos: de pouco acima de 0,6 até 1; neutro em 0,5
+  return side.map((x) => (x < 0 ? rampAt(name, (0.4 * iNeg++) / nNeg) : x > 0 ? rampAt(name, 0.6 + (0.4 * ++iPos) / nPos) : rampAt(name, 0.5)));
 }
 
 /** Índice da classe de v dados os limites internos (k-1 limites -> k classes). */

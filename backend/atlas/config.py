@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(ROOT / 'data' / 'atlas.db').as_posix()}"
     data_dir: Path = ROOT / "data"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # Teto de memória (MB) para os quadros de dados mantidos em cache pela API.
+    cache_mb: int = 400
     http_timeout: float = 300.0
     http_retries: int = 4
     user_agent: str = "atlas-brasil/0.1 (plataforma aberta de dados publicos)"

@@ -63,6 +63,22 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
   const cb = useRef({ onSelect, onHover });
   useEffect(() => { cb.current = { onSelect, onHover }; });
   const lastHover = useRef<string | null>(null);
+  // Destaque sob o cursor por feature-state: trocar o filtro da camada a cada movimento obrigava o mapa a
+  // reprocessar a malha inteira (5.571 municípios) e o contorno ficava segundos atrás do cursor.
+  const hoverId = useRef<string | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paintHover = (map: MlMap, code: string | null) => {
+    if (hoverId.current === code || !map.getSource("terr")) return;
+    if (hoverId.current !== null) map.setFeatureState({ source: "terr", id: hoverId.current }, { hover: false });
+    if (code !== null) map.setFeatureState({ source: "terr", id: code }, { hover: true });
+    hoverId.current = code;
+  };
+  // O componente pai (ranking, perfil, gráficos) só é avisado quando o cursor repousa, não a cada território cruzado.
+  const notifyHover = (code: string | null) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => cb.current.onHover?.(code), 90);
+  };
+  const hoverFns = useRef({ paintHover, notifyHover });
   // Enquadramento: enquanto o usuário não mover o mapa, ele é reenquadrado quando o contêiner muda de tamanho.
   const fitRef = useRef<{ bounds: Box; padding: number; maxZoom: number }>({ bounds: BR_BOUNDS, padding: 12, maxZoom: 11 });
   const movedRef = useRef(false);
@@ -81,6 +97,7 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.touchZoomRotate.disableRotation();
     mapRef.current = map;
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __atlasMap?: MlMap }).__atlasMap = map;  // apoio a testes locais
     const s = sync?.current;
     s?.maps.add(map);
     map.on("move", () => {
@@ -94,19 +111,19 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
       if (!f) return;
       map.getCanvas().style.cursor = "pointer";
       const p = f.properties as { code: string; name: string; uf?: string };
-      map.setFilter("terr-hover", ["==", ["get", "code"], p.code]);
       if (lastHover.current !== String(p.code)) {
         lastHover.current = String(p.code);
-        cb.current.onHover?.(String(p.code));
+        hoverFns.current.paintHover(map, String(p.code));
+        hoverFns.current.notifyHover(String(p.code));
       }
       setTip({ x: e.point.x, y: e.point.y, w: map.getContainer().clientWidth, name: p.name, uf: p.uf, code: String(p.code) });
     });
     map.on("mouseleave", "terr-fill", () => {
       map.getCanvas().style.cursor = "";
-      if (map.getLayer("terr-hover")) map.setFilter("terr-hover", ["==", ["get", "code"], ""]);
+      hoverFns.current.paintHover(map, null);
       setTip(null);
       lastHover.current = null;
-      cb.current.onHover?.(null);
+      hoverFns.current.notifyHover(null);
     });
     map.on("click", "terr-fill", (e) => {
       const p = e.features?.[0]?.properties as { code: string; name: string } | undefined;
@@ -162,8 +179,9 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
           map.addSource("sel", { type: "geojson", data: { type: "FeatureCollection", features: outlinesRef.current } });
           map.addLayer({ id: "sel-halo", type: "line", source: "sel", paint: { "line-color": cssVar("--surface"), "line-width": 5.5 } });
           map.addLayer({ id: "sel-line", type: "line", source: "sel", paint: { "line-color": selColor() as unknown as string, "line-width": 3 } });
-          map.addLayer({ id: "terr-hover", type: "line", source: "terr", filter: ["==", ["get", "code"], ""],
-            paint: { "line-color": cssVar("--ink"), "line-width": 1.5 } });
+          hoverId.current = null;
+          map.addLayer({ id: "terr-hover", type: "line", source: "terr",
+            paint: { "line-color": cssVar("--ink"), "line-width": 1.5, "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 1, 0] } });
           geoRef.current = geo;
           setGeoLevel(level);
           setError(null);
@@ -188,6 +206,9 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
       const v = values.get(code);
       if (v !== null && v !== undefined) map.setFeatureState({ source: "terr", id: code }, { color: colorOf(v) });
     }
+    const h = hoverId.current;  // a limpeza acima também apagou o destaque do cursor
+    hoverId.current = null;
+    if (h !== null) hoverFns.current.paintHover(map, h);
   }, [values, colorOf, geoLevel, level]);
 
   // Recorte por UF (filtra a malha) e enquadramento: territórios em foco, senão o estado do recorte, senão o Brasil.
@@ -223,7 +244,7 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
 
   useEffect(() => {
     const map = mapRef.current;
-    if (map?.getLayer("terr-hover")) map.setFilter("terr-hover", ["==", ["get", "code"], hovered ?? ""]);
+    if (map?.getLayer("terr-hover")) hoverFns.current.paintHover(map, hovered ?? lastHover.current);
   }, [hovered, geoLevel]);
 
   const tv = tip ? values.get(tip.code) : undefined;

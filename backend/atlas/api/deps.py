@@ -11,10 +11,24 @@ from sqlalchemy.orm import Session
 from ..data import LEVELS, DataAccess, Variable
 from ..db import get_session
 from ..models import IngestionRun, Territory
+from ..config import settings
 from ..stats.formula import FormulaError
 
 _cache: OrderedDict = OrderedDict()
 _CACHE_MAX = 400
+# Tamanho (bytes) dos quadros guardados: o cache também é limitado em memória, não só em número de itens —
+# séries municipais completas ocupam vários MB cada e, sem esse teto, a API cresce até o limite do contêiner.
+_sizes: dict = {}
+
+
+def _evict() -> None:
+    budget = settings.cache_mb * 1024 * 1024
+    while _sizes and (len(_cache) > _CACHE_MAX or sum(_sizes.values()) > budget):
+        old = next((k for k in _cache if k in _sizes), None)  # o mais antigo entre os quadros
+        if old is None:
+            break
+        _cache.pop(old, None)
+        _sizes.pop(old, None)
 
 
 class Ctx:
@@ -43,8 +57,8 @@ class Ctx:
             raise HTTPException(422, str(e)) from None
         if key:
             _cache[key] = v
-            while len(_cache) > _CACHE_MAX:
-                _cache.popitem(last=False)
+            _sizes[key] = int(v.result.df.estimated_size())
+            _evict()
         return v
 
     def periods(self, spec: str, level: str) -> list[str]:

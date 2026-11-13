@@ -8,7 +8,7 @@ import { Button, Check, Field, Notice, Provenance, Select, Stat } from "@/compon
 import { API, api, loadGeo, qs, useApi, type MapData, type Stats, type Territory, type VarMeta } from "@/lib/api";
 import { exportPng, exportSvg, type MapExport } from "@/lib/exportMap";
 import { download, fmtNum, fmtValue, LEVEL_NAMES, periodLabel, slug } from "@/lib/format";
-import { classOf, continuousScale, cssVar, PALETTES, ramp, type ContinuousScale, type ScaleMode } from "@/lib/palettes";
+import { classOf, continuousScale, cssVar, divergingClassColors, PALETTES, ramp, resolvePalette, type ContinuousScale, type ScaleMode } from "@/lib/palettes";
 import { ProfileBody } from "./ProfileView";
 import { TerritorialCompare } from "./TerritorialCompare";
 
@@ -16,7 +16,7 @@ type Center = "auto" | "nenhum" | "zero" | "br" | "mediana";
 type Shared = { level: string; uf: string; real: boolean; method: string; scale: ScaleMode; center: Center; k: number; palette: string };
 type Sel = { code: string; name: string; level: string; uf?: string | null };
 type HistRow = { code: string; name: string; uf: string | null; v0: number | null; v1: number | null; abs: number | null; pct: number | null; cagr: number | null; boundary_change: string[] | null };
-type HistResp = { meta: VarMeta; level: string; p0: string; p1: string; years: number; rows: HistRow[]; stats: Stats; n_missing: number; n_boundary_changes: number };
+type HistResp = { meta: VarMeta; level: string; p0: string; p1: string; years: number; rows: HistRow[]; stats: Stats; n_missing: number; n_boundary_changes: number; method: string | null; breaks: { pct: number[]; abs: number[] } | null };
 type UnitLike = { unit: string; decimals?: number };
 const PCT: UnitLike = { unit: "%", decimals: 1 };
 const PP: UnitLike = { unit: "p.p.", decimals: 2 };
@@ -91,8 +91,8 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
 
   // Modo de variação: compara o período atual com um período-base anterior.
   const baseOk = base && cur && periods.includes(base) && base < cur ? base : null;
-  const hist = useApi<HistResp>(baseOk && ok ? `/api/historical${qs({ var: spec, level: shared.level, p0: baseOk, p1: ok.period, real: shared.real, uf })}` : null);
-  const hOk = baseOk && ok && hist.data && hist.data.meta.spec === spec && hist.data.level === shared.level && hist.data.p0 === baseOk && hist.data.p1 === ok.period ? hist.data : null;
+  const hist = useApi<HistResp>(baseOk && ok ? `/api/historical${qs({ var: spec, level: shared.level, p0: baseOk, p1: ok.period, real: shared.real, uf, method: continuous ? null : shared.method, k: continuous ? null : shared.k })}` : null);
+  const hOk = baseOk && ok && hist.data && hist.data.meta.spec === spec && hist.data.level === shared.level && hist.data.p0 === baseOk && hist.data.p1 === ok.period && (hist.data.method ?? null) === (continuous ? null : shared.method) ? hist.data : null;
   const variation = !!baseOk;
   // Indicadores já expressos em % variam em pontos percentuais (diferença), não em "% de %".
   const inPP = variation && !!ok?.meta.percent;
@@ -114,7 +114,8 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
     : (brMap.data && ok && brMap.data.period === ok.period && brMap.data.meta.spec === spec ? brMap.data.values[0]?.value ?? null : null);
 
   const { scale, centerLabel } = useMemo(() => {
-    if (!nums.length || !(continuous || variation)) return { scale: null, centerLabel: null as string | null };
+    // A classificação escolhida vale também na variação entre períodos: a escala contínua só existe no modo contínuo.
+    if (!nums.length || !continuous) return { scale: null, centerLabel: null as string | null };
     const crosses = nums.some((v) => v < 0) && nums.some((v) => v > 0);
     let center: number | null = null, label: string | null = null;
     if (shared.center === "zero") [center, label] = [0, "zero"];
@@ -123,11 +124,17 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
     else if (shared.center === "auto" && variation) [center, label] = brValue !== null ? [brValue, "variação do Brasil"] : [0, "zero"];
     else if (shared.center === "auto" && crosses) [center, label] = [0, "zero"];
     if (center === null) label = null;
-    return { scale: continuousScale(nums, variation ? "divergente" : shared.palette, variation ? "linear" : shared.scale, center), centerLabel: label };
+    // A paleta escolhida é sempre usada; só a "Automática" troca para a divergente quando há ponto central.
+    return { scale: continuousScale(nums, resolvePalette(shared.palette, center !== null), shared.scale, center), centerLabel: label };
   }, [nums, continuous, variation, shared.center, shared.palette, shared.scale, brValue]);
 
-  const breaks = useMemo(() => (variation ? [] : ok?.breaks ?? []), [variation, ok]);
-  const colors = useMemo(() => ramp(shared.palette, breaks.length + 1), [shared.palette, breaks]);
+  const breaks = useMemo(() => (variation ? (inPP ? hOk?.breaks?.abs : hOk?.breaks?.pct) ?? [] : ok?.breaks ?? []), [variation, inPP, hOk, ok]);
+  // Em classes, a paleta automática é divergente só quando as classes atravessam o zero (variações positivas e negativas).
+  const classCross = breaks.length > 0 && breaks[0] < 0 && breaks[breaks.length - 1] > 0;
+  // Nesse caso as cores são alinhadas ao zero (vermelho abaixo, azul acima), e não à classe do meio.
+  const colors = useMemo(() => (classCross && shared.palette === "auto" ? divergingClassColors("divergente", breaks) : ramp(resolvePalette(shared.palette, false), breaks.length + 1)),
+    [shared.palette, classCross, breaks]);
+  const nonPositive = useMemo(() => nums.filter((v) => v <= 0).length, [nums]);
   const colorOf = useCallback(
     (v: number) => (scale ? scale.colorOf(v) : colors[Math.min(colors.length - 1, classOf(v, breaks))]),
     [scale, colors, breaks],
@@ -241,6 +248,7 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
                     Escala {scale.kind === "log" ? "logarítmica" : "linear"}
                     {centerLabel && scale.center !== null ? <> · divergente, centro em <span className="num">{fmtValue(scale.center, unit)}</span> ({centerLabel}); cada lado tem amplitude própria</> : " · cada valor tem um tom próprio"}
                   </div>
+                  {scale.logDenied && <div className="mt-1 text-[10px] text-warn">Escala logarítmica não se aplica a estes valores (há negativos ou o centro não é positivo): usando a linear.</div>}
                   {scale.nonPositive > 0 && <div className="mt-1 text-[10px] text-muted">{scale.nonPositive} território(s) com valor zero{scale.kind === "log" ? " ficam na cor mínima (escala logarítmica)" : ""}.</div>}
                   {shared.center === "br" && scale.center === null && <div className="mt-1 text-[10px] text-warn">{brMap.loading || brHist.loading ? "Buscando a referência do Brasil…" : "Sem referência do Brasil para este indicador: escala não centrada."}</div>}
                 </div>
@@ -251,6 +259,10 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
                   ))}
                 </ul>
               )}
+              {!scale && shared.method === "geometrico" && nonPositive > 0 && (
+                <div className="mt-1 max-w-72 text-[10px] text-warn">A progressão geométrica só considera valores positivos: {nonPositive} território(s) com valor zero ou negativo ficam na primeira classe. Para este indicador, prefira quantis ou quebras naturais.</div>
+              )}
+              {!scale && classCross && shared.palette === "auto" && <div className="mt-1 text-[10px] text-muted">Cores alinhadas ao zero: vermelho abaixo, azul acima.</div>}
               <div className="mt-1 flex items-center gap-2"><span className="inline-block h-3 w-5 border border-line" style={{ background: cssVar("--missing") }} />Sem dado ({nMissing})</div>
             </div>
           )}
@@ -299,7 +311,7 @@ export default function AtlasView() {
   const sp = useSearchParams();
   const params = useParams<{ code?: string }>();
   const [shared, setShared] = useState<Shared>({
-    level: sp.get("level") ?? "MUN", uf: sp.get("uf") ?? "", real: false, method: "continua", scale: "auto", center: "auto", k: 5, palette: "petroleo",
+    level: sp.get("level") ?? "MUN", uf: sp.get("uf") ?? "", real: false, method: "continua", scale: "auto", center: "auto", k: 5, palette: "auto",
   });
   const [compare, setCompare] = useState(sp.get("comparar") === "1");
   const [sel, setSel] = useState<Sel[]>([]);
@@ -448,8 +460,8 @@ export default function AtlasView() {
             <Select value={String(shared.k)} onChange={(k) => set({ k: Number(k) })} options={[3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: String(n), label: String(n) }))} />
           </Field>
         )}
-        <Field label="Ponto central">
-          <Select value={shared.center} onChange={(v) => set({ center: v as Center })} options={[
+        <Field label="Ponto central" hint={shared.method === "continua" ? undefined : "Só na classificação contínua."}>
+          <Select disabled={shared.method !== "continua"} value={shared.center} onChange={(v) => set({ center: v as Center })} options={[
             { value: "auto", label: "Automático" }, { value: "nenhum", label: "Sem centro (sequencial)" }, { value: "zero", label: "Zero" },
             { value: "br", label: "Referência do Brasil" }, { value: "mediana", label: "Mediana dos territórios" }]} />
         </Field>
@@ -462,8 +474,8 @@ export default function AtlasView() {
         </div>
       </div>
       <p className="mt-2 text-xs text-muted">
-        {shared.method === "continua" && "Contínua: a cor acompanha o valor, sem classes. A escala automática passa a logarítmica quando a distribuição é muito assimétrica; com 30 ou mais territórios, os 2% extremos de cada ponta recebem a cor do limite. Com ponto central, a escala é divergente (vermelho abaixo, azul acima, neutro no centro): no automático, isso ocorre quando há valores positivos e negativos; na variação entre períodos, o centro é a variação do Brasil."}
-        {shared.method === "jenks" && "Quebras naturais: os limites são postos onde há saltos nos valores, reunindo territórios parecidos e separando os discrepantes. Em mapas com muitos territórios os limites são aproximados por amostragem. O ponto central e a variação entre períodos usam sempre a escala contínua."}
+        {shared.method === "continua" && "Contínua: a cor acompanha o valor, sem classes. A escala automática passa a logarítmica quando a distribuição é muito assimétrica; com 30 ou mais territórios, os 2% extremos de cada ponta recebem a cor do limite. Com ponto central, o tom do meio da paleta fica no centro e cada lado tem amplitude própria: no automático, isso ocorre quando há valores positivos e negativos; na variação entre períodos, o centro é a variação do Brasil. A paleta “Automática” usa azul-verde e troca para vermelho–azul quando há ponto central; qualquer outra paleta escolhida é sempre respeitada."}
+        {shared.method === "jenks" && "Quebras naturais: os limites são postos onde há saltos nos valores, reunindo territórios parecidos e separando os discrepantes. Em mapas com muitos territórios os limites são aproximados por amostragem. Vale também para a variação entre períodos; o ponto central só existe na classificação contínua."}
         {shared.method === "quantis" && "Quantis: cada classe reúne aproximadamente o mesmo número de territórios — destaca a posição relativa, não a distância entre valores."}
         {shared.method === "iguais" && "Intervalos iguais: classes com a mesma amplitude de valores — distribuições assimétricas concentram territórios nas primeiras classes."}
         {shared.method === "geometrico" && "Progressão geométrica: limites crescem multiplicativamente — adequada a distribuições muito assimétricas; ignora valores ≤ 0."}

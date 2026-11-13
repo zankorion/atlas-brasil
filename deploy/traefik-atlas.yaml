@@ -1,0 +1,30 @@
+{
+  "http": {
+    "routers": {
+      "http-atlas": {
+        "service": "atlas-web",
+        "rule": "Host(`atlas.strenos.com.br`)",
+        "entryPoints": ["http"],
+        "middlewares": ["redirect-to-https"]
+      },
+      "https-atlas-api": {
+        "service": "atlas-api",
+        "rule": "Host(`atlas.strenos.com.br`) && (PathPrefix(`/api`) || Path(`/docs`) || Path(`/openapi.json`))",
+        "priority": 100,
+        "entryPoints": ["https"],
+        "tls": { "certResolver": "letsencrypt", "domains": [{ "main": "atlas.strenos.com.br" }] }
+      },
+      "https-atlas": {
+        "service": "atlas-web",
+        "rule": "Host(`atlas.strenos.com.br`)",
+        "priority": 10,
+        "entryPoints": ["https"],
+        "tls": { "certResolver": "letsencrypt", "domains": [{ "main": "atlas.strenos.com.br" }] }
+      }
+    },
+    "services": {
+      "atlas-web": { "loadBalancer": { "servers": [{ "url": "http://atlas-web:3000" }] } },
+      "atlas-api": { "loadBalancer": { "servers": [{ "url": "http://atlas-api:8000" }] } }
+    }
+  }
+}
