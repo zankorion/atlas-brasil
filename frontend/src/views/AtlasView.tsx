@@ -1,11 +1,12 @@
 "use client";
+import { useMoney } from "@/lib/money";
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { bboxOf, ChoroMap, type Box, type MapSync } from "@/components/ChoroMap";
-import { IndicatorSelect, LEVEL_OPTIONS, TerritorySearch, UfSelect, useCatalog, useUfs } from "@/components/pickers";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { bboxOf, ChoroMap, type Box } from "@/components/ChoroMap";
+import { IndicatorPicker, LEVEL_OPTIONS, TerritorySearch, UfSelect, useCatalog, useUfs } from "@/components/pickers";
 import { RankPanel, type RankItem } from "@/components/RankPanel";
-import { Button, Check, Field, Notice, Provenance, Select, Stat } from "@/components/ui";
-import { API, api, loadGeo, qs, useApi, type MapData, type Stats, type Territory, type VarMeta } from "@/lib/api";
+import { Button, Field, Notice, Provenance, Select, Stat } from "@/components/ui";
+import { API, api, loadGeo, qs, useApi, type MapData, type Stats, type Territory, type Money, type VarMeta } from "@/lib/api";
 import { exportPng, exportSvg, type MapExport } from "@/lib/exportMap";
 import { download, fmtNum, fmtValue, LEVEL_NAMES, periodLabel, slug } from "@/lib/format";
 import { classOf, continuousScale, cssVar, divergingClassColors, PALETTES, ramp, resolvePalette, type ContinuousScale, type ScaleMode } from "@/lib/palettes";
@@ -13,7 +14,7 @@ import { ProfileBody } from "./ProfileView";
 import { TerritorialCompare } from "./TerritorialCompare";
 
 type Center = "auto" | "nenhum" | "zero" | "br" | "mediana";
-type Shared = { level: string; uf: string; real: boolean; method: string; scale: ScaleMode; center: Center; k: number; palette: string };
+type Shared = { level: string; uf: string; real: Money; method: string; scale: ScaleMode; center: Center; k: number; palette: string };
 type Sel = { code: string; name: string; level: string; uf?: string | null };
 type HistRow = { code: string; name: string; uf: string | null; v0: number | null; v1: number | null; abs: number | null; pct: number | null; cagr: number | null; boundary_change: string[] | null };
 type HistResp = { meta: VarMeta; level: string; p0: string; p1: string; years: number; rows: HistRow[]; stats: Stats; n_missing: number; n_boundary_changes: number; method: string | null; breaks: { pct: number[]; abs: number[] } | null };
@@ -54,14 +55,14 @@ function medianOf(a: number[]): number | null {
 }
 
 type PanelProps = {
-  shared: Shared; sync: React.RefObject<MapSync>; initial: string; initialPeriod?: string | null; title: string;
-  /** true = ranking ao lado do mapa (um mapa só); false = abaixo (dois mapas). */
-  side: boolean;
+  shared: Shared; set: (p: Partial<Shared>) => void; initial: string; initialPeriod?: string | null;
   sel: Sel[]; hov: string | null; onHover: (c: string | null) => void; onToggle: (code: string, name: string) => void;
   onSpec?: (spec: string) => void; focusBox: Box | null; outlines: GeoJSON.Feature[];
+  /** Selecionados que contêm outro selecionado: não ganham mapa aproximado próprio. */
+  containers: Set<string>;
 };
 
-function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov, onHover, onToggle, onSpec, focusBox, outlines }: PanelProps) {
+function MapPanel({ shared, set, initial, initialPeriod, sel, hov, onHover, onToggle, onSpec, focusBox, outlines, containers }: PanelProps) {
   const [spec, setSpecState] = useState(initial);
   const [period, setPeriod] = useState<string | null>(initialPeriod ?? null);
   const [base, setBase] = useState<string | null>(null);
@@ -185,11 +186,9 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
   };
 
   return (
-    <section aria-label={title} className="flex min-w-0 flex-1 flex-col gap-3">
-      <div className="grid gap-3 sm:grid-cols-[1fr_8rem_10rem]">
-        <Field label={`${title} — indicador`}>
-          <IndicatorSelect value={spec} onChange={setSpec} level={shared.level} frequency="A" placeholder="— escolha um indicador —" />
-        </Field>
+    <section aria-label="Mapa" className="flex min-w-0 flex-1 flex-col gap-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_8rem_10rem]">
+        <IndicatorPicker value={spec} onChange={setSpec} level={shared.level} frequency="A" />
         <Field label="Período">
           <select className="w-full rounded border border-line bg-surface px-2.5 py-1.5 text-sm" value={cur ?? ""} onChange={(e) => setPeriod(e.target.value)} disabled={!periods.length} aria-label="Período">
             {[...periods].reverse().map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
@@ -212,17 +211,58 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
       )}
       {error && !fallback && <Notice kind="error">{error}</Notice>}
       {switched && <Notice>“{switched}” não existe no nível territorial escolhido; o mapa passou a mostrar outro indicador. <button type="button" className="underline" onClick={() => setSwitched(null)}>Entendi</button></Notice>}
+      {ok && (ok.n_inconsistent ?? 0) > 0 && (
+        <Notice kind="warn">{ok.n_inconsistent} {ok.n_inconsistent === 1 ? "município teve a declaração" : "municípios tiveram a declaração"} de {periodLabel(ok.period)} deixada de fora por inconsistência contábil (por exemplo, receita muitas vezes maior que a despesa) e {ok.n_inconsistent === 1 ? "aparece" : "aparecem"} como “sem dado”. Os valores declarados não são corrigidos; a regra está em Fontes e Metodologia.</Notice>
+      )}
       {variation && inPP && <Notice>Este indicador já é uma porcentagem: a variação é mostrada em pontos percentuais (valor final menos valor inicial).</Notice>}
       {variation && hist.error && <Notice kind="error">{hist.error}</Notice>}
       {variation && hOk && hOk.n_boundary_changes > 0 && shared.level === "MUN" && (
         <Notice kind="warn">Entre {hOk.p0} e {hOk.p1}, {hOk.n_boundary_changes} municípios tiveram alteração de limites registrada (instalação ou cessão de área): neles a variação mistura mudança econômica e territorial. Municípios de origem não identificados automaticamente não entram nessa conta.</Notice>
       )}
-      <div className={`grid gap-3 ${side ? "xl:grid-cols-[minmax(0,1fr)_22rem]" : ""}`}>
+      {/* Opções de leitura do mapa: ficam junto dele, separadas da escolha de território */}
+      <div className="rounded-md border border-line bg-surface p-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Field label="Classificação">
+            <Select value={shared.method} onChange={(method) => set({ method })} options={[
+              { value: "continua", label: "Contínua (gradiente)" }, { value: "jenks", label: "Quebras naturais (Jenks)" }, { value: "quantis", label: "Quantis" },
+              { value: "iguais", label: "Intervalos iguais" }, { value: "geometrico", label: "Progressão geométrica" }]} />
+          </Field>
+          {shared.method === "continua" ? (
+            <Field label="Escala">
+              <Select value={shared.scale} onChange={(v) => set({ scale: v as ScaleMode })} options={[
+                { value: "auto", label: "Automática" }, { value: "linear", label: "Linear" }, { value: "log", label: "Logarítmica" }]} />
+            </Field>
+          ) : (
+            <Field label="Classes">
+              <Select value={String(shared.k)} onChange={(k) => set({ k: Number(k) })} options={[3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: String(n), label: String(n) }))} />
+            </Field>
+          )}
+          <Field label="Ponto central" hint={shared.method === "continua" ? undefined : "Só na classificação contínua."}>
+            <Select disabled={shared.method !== "continua"} value={shared.center} onChange={(v) => set({ center: v as Center })} options={[
+              { value: "auto", label: "Automático" }, { value: "nenhum", label: "Sem centro (sequencial)" }, { value: "zero", label: "Zero" },
+              { value: "br", label: "Referência do Brasil" }, { value: "mediana", label: "Mediana dos territórios" }]} />
+          </Field>
+          <Field label="Escala de cores">
+            <Select value={shared.palette} onChange={(palette) => set({ palette })} options={PALETTES.map((p) => ({ value: p.id, label: p.name }))} />
+          </Field>
+        </div>
+        <details className="mt-2 text-xs text-muted">
+          <summary className="cursor-pointer select-none hover:text-ink">Como ler esta classificação</summary>
+          <p className="mt-1.5 leading-relaxed">
+            {shared.method === "continua" && "Contínua: a cor acompanha o valor, sem classes. A escala automática passa a logarítmica quando a distribuição é muito assimétrica; com 30 ou mais territórios, os 2% extremos de cada ponta recebem a cor do limite. Com ponto central, o tom do meio da paleta fica no centro e cada lado tem amplitude própria: no automático, isso ocorre quando há valores positivos e negativos; na variação entre períodos, o centro é a variação do Brasil. A paleta “Automática” usa azul-verde e troca para vermelho–azul quando há ponto central; qualquer outra paleta escolhida é sempre respeitada."}
+            {shared.method === "jenks" && "Quebras naturais: os limites são postos onde há saltos nos valores, reunindo territórios parecidos e separando os discrepantes. Em mapas com muitos territórios os limites são aproximados por amostragem. Vale também para a variação entre períodos; o ponto central só existe na classificação contínua."}
+            {shared.method === "quantis" && "Quantis: cada classe reúne aproximadamente o mesmo número de territórios — destaca a posição relativa, não a distância entre valores."}
+            {shared.method === "iguais" && "Intervalos iguais: classes com a mesma amplitude de valores — distribuições assimétricas concentram territórios nas primeiras classes."}
+            {shared.method === "geometrico" && "Progressão geométrica: limites crescem multiplicativamente — adequada a distribuições muito assimétricas; ignora valores ≤ 0."}
+          </p>
+        </details>
+      </div>
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="relative h-[52vh] min-h-[340px] lg:h-[62vh]">
           <ChoroMap
             level={shared.level} values={values} colorOf={colorOf} uf={uf}
             format={(v) => (ok ? fmtValue(v, unit) : "—")} selected={selCodes}
-            onSelect={onToggle} sync={sync} hovered={hov} onHover={onHover} focus={focusBox} outlines={outlines} selectionFull={sel.length >= MAX_SEL}
+            onSelect={onToggle} hovered={hov} onHover={onHover} focus={focusBox} outlines={outlines} selectionFull={sel.length >= MAX_SEL}
             ariaLabel={ok ? `Mapa: ${legendTitle}, ${LEVEL_NAMES[shared.level]}, ${legendSub}` : "Mapa"}
           />
           {!spec && (
@@ -268,7 +308,7 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
           )}
         </div>
         {ok && (
-          <div className={side ? "h-80 xl:h-[62vh]" : "h-80"}>
+          <div className="h-80 xl:h-[62vh]">
             <RankPanel
               spec={spec} level={shared.level} period={ok.period} real={shared.real} uf={uf} meta={unit} values={values}
               colorOf={colorOf} selected={sel} hovered={hov} onHover={onHover} onSelect={onToggle} override={rankOverride}
@@ -276,6 +316,42 @@ function MapPanel({ shared, sync, initial, initialPeriod, title, side, sel, hov,
           </div>
         )}
       </div>
+      {sel.length >= 2 && (
+        <section aria-label="Mapas aproximados dos territórios selecionados">
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">Cada território de perto</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {sel.map((x, i) => {
+              if (containers.has(x.code)) return null;
+              const shape = outlines.find((f) => (f.properties as { code: string }).code === x.code);
+              const v = values.get(x.code);
+              return (
+                <figure key={x.code} className="min-w-0">
+                  <figcaption className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span aria-hidden className="inline-block h-3 w-3 shrink-0 rounded-full" style={{ background: `var(--series-${(i % 8) + 1})` }} />
+                      <span className="truncate font-medium">{x.code === "BR" ? "Todo o Brasil" : x.name}</span>
+                    </span>
+                    {ok && x.level === shared.level && <span className="num shrink-0 text-xs text-muted">{v === null || v === undefined ? "sem dado" : fmtValue(v, unit)}</span>}
+                  </figcaption>
+                  <div className="h-56">
+                    <ChoroMap
+                      compact level={shared.level} values={values} colorOf={colorOf} uf=""
+                      format={(val) => (ok ? fmtValue(val, unit) : "—")} selected={selCodes}
+                      focus={shape ? bboxOf([shape]) : null} outlines={shape ? [shape] : []}
+                      ariaLabel={`Mapa aproximado: ${x.name}`}
+                    />
+                  </div>
+                </figure>
+              );
+            })}
+          </div>
+          {containers.size > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Sem mapa próprio: {sel.filter((x) => containers.has(x.code)).map((x) => (x.code === "BR" ? "Todo o Brasil" : x.name)).join(", ")} — {containers.size === 1 ? "contém" : "contêm"} outros territórios selecionados, que já aparecem de perto acima.
+            </p>
+          )}
+        </section>
+      )}
       {ok && stats && (
         <>
           <div className="grid grid-cols-2 gap-4 rounded-md border border-line bg-surface p-4 sm:grid-cols-5">
@@ -310,14 +386,15 @@ const MAP_LEVELS = new Set(LEVEL_OPTIONS.map((l) => l.value));
 export default function AtlasView() {
   const sp = useSearchParams();
   const params = useParams<{ code?: string }>();
-  const [shared, setShared] = useState<Shared>({
+  const [money] = useMoney();
+  const [sharedState, setShared] = useState<Shared>({
     level: sp.get("level") ?? "MUN", uf: sp.get("uf") ?? "", real: false, method: "continua", scale: "auto", center: "auto", k: 5, palette: "auto",
   });
-  const [compare, setCompare] = useState(sp.get("comparar") === "1");
+  // valores monetários: escolha global do site (reais, IPCA, dólares ou ouro)
+  const shared = useMemo(() => ({ ...sharedState, real: money }), [sharedState, money]);
   const [sel, setSel] = useState<Sel[]>([]);
   const [hov, setHov] = useState<string | null>(null);
   const [focus, setFocus] = useState(sp.get("var") ?? "");
-  const sync = useRef<MapSync>({ maps: new Set(), busy: false });
   const set = (p: Partial<Shared>) => setShared((s) => ({ ...s, ...p }));
   const initial = sp.get("var") ?? "";
 
@@ -365,6 +442,25 @@ export default function AtlasView() {
     return () => { alive = false; };
   }, [sel]);
 
+  // Hierarquia: um selecionado que contém outro (o estado de um município escolhido, "Todo o Brasil") não precisa
+  // de mapa próprio — o mapa do território menor já fica dentro dele.
+  const [parents, setParents] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    const missing = sel.filter((x) => x.code !== "BR" && !(x.code in parents));
+    if (!missing.length) return;
+    let alive = true;
+    Promise.all(missing.map((x) => api<Territory & { regiao_code?: string | null; rgint_code?: string | null; rgi_code?: string | null }>(`/api/territories/${x.code}`)
+      .then((t) => [x.code, [t.rgi_code, t.rgint_code, t.uf_code, t.regiao_code].filter((c): c is string => !!c && c !== x.code)] as const)
+      .catch(() => [x.code, [] as string[]] as const))).then((got) => { if (alive) setParents((cur) => ({ ...cur, ...Object.fromEntries(got) })); });
+    return () => { alive = false; };
+  }, [sel, parents]);
+  const containers = useMemo(() => {
+    const out = new Set<string>();
+    for (const x of sel) for (const p of parents[x.code] ?? []) if (sel.some((y) => y.code === p)) out.add(p);
+    if (sel.length > 1 && sel.some((x) => x.code === "BR")) out.add("BR");
+    return out;
+  }, [sel, parents]);
+
   // Sugestões de comparação a partir do último território escolhido.
   const ufs = useUfs();
   const last = sel[sel.length - 1];
@@ -411,14 +507,14 @@ export default function AtlasView() {
           )}
         </div>
         {sel.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">Busque pelo nome acima ou clique direto no mapa ou no ranking. O mapa aproxima no que você escolher; clique de novo num território para tirá-lo da seleção.</p>
+          <p className="mt-2 text-sm text-muted">Busque pelo nome acima ou clique direto no mapa ou no ranking. O mapa aproxima no que você escolher e, a partir de dois territórios, cada um ganha também um mapa próprio, de perto. Clique de novo num território para tirá-lo da seleção.</p>
         ) : (
           <>
             <ul className="mt-2.5 flex flex-wrap gap-1.5 text-sm">
               {sel.map((x, i) => (
                 <li key={x.code} className="flex items-center gap-1.5 rounded border border-line bg-surface-2 py-1 pl-2 pr-1">
                   <span aria-hidden className="inline-block h-3 w-3 rounded-full" style={{ background: `var(--series-${(i % 8) + 1})` }} />
-                  {x.name}{x.level === "MUN" && siglaOf(x) ? ` (${siglaOf(x)})` : ""}
+                  {x.code === "BR" ? "Todo o Brasil" : x.name}{x.level === "MUN" && siglaOf(x) ? ` (${siglaOf(x)})` : ""}
                   <button type="button" onClick={() => setSel(sel.filter((y) => y.code !== x.code))} aria-label={`Remover ${x.name} da seleção`}
                     className="grid h-5 w-5 place-items-center rounded text-muted hover:bg-surface hover:text-danger">×</button>
                 </li>
@@ -426,18 +522,18 @@ export default function AtlasView() {
             </ul>
             {!full && last && (
               <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                <span>Comparar com:</span>
+                {(last.level !== "BR" || (lastUf && !has(lastUf.code)) || !has("BR")) && <span>Comparar com:</span>}
                 {last.level !== "BR" && <button type="button" className={sugCls} disabled={simBusy} onClick={addSimilar}>+ parecidos com {last.name}</button>}
                 {lastUf && !has(lastUf.code) && <button type="button" className={sugCls} onClick={() => toggle(lastUf.code, lastUf.name, "UF", lastUf.uf)}>+ {lastUf.name} (estado)</button>}
-                {!has("BR") && <button type="button" className={sugCls} onClick={() => toggle("BR", "Brasil", "BR", null)}>+ Brasil</button>}
-                <span className="ml-1">A cor de cada etiqueta é a do contorno no mapa e das linhas nos gráficos.</span>
+                {!has("BR") && <button type="button" className={sugCls} onClick={() => toggle("BR", "Brasil", "BR", null)}>+ Todo o Brasil</button>}
+                <span>A cor de cada etiqueta é a do contorno no mapa e das linhas nos gráficos.{sel.length >= 2 ? " Abaixo do mapa há um mapa aproximado de cada território (menos dos que contêm outros selecionados)." : ""}</span>
               </div>
             )}
           </>
         )}
       </section>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 rounded-md border border-line bg-surface p-3 md:grid-cols-4 xl:grid-cols-8">
+      <div className="mt-3 grid max-w-2xl grid-cols-2 gap-3 rounded-md border border-line bg-surface p-3">
         <Field label="Nível territorial">
           <Select value={shared.level} onChange={(level) => set({ level })} options={LEVEL_OPTIONS} />
         </Field>
@@ -445,47 +541,11 @@ export default function AtlasView() {
           {UF_LEVELS.has(shared.level) ? <UfSelect value={shared.uf} onChange={(uf) => set({ uf })} />
             : <select className="w-full rounded border border-line bg-surface px-2.5 py-1.5 text-sm opacity-50" disabled aria-label="Recorte"><option>Todo o Brasil</option></select>}
         </Field>
-        <Field label="Classificação">
-          <Select value={shared.method} onChange={(method) => set({ method })} options={[
-            { value: "continua", label: "Contínua (gradiente)" }, { value: "jenks", label: "Quebras naturais (Jenks)" }, { value: "quantis", label: "Quantis" },
-            { value: "iguais", label: "Intervalos iguais" }, { value: "geometrico", label: "Progressão geométrica" }]} />
-        </Field>
-        {shared.method === "continua" ? (
-          <Field label="Escala">
-            <Select value={shared.scale} onChange={(v) => set({ scale: v as ScaleMode })} options={[
-              { value: "auto", label: "Automática" }, { value: "linear", label: "Linear" }, { value: "log", label: "Logarítmica" }]} />
-          </Field>
-        ) : (
-          <Field label="Classes">
-            <Select value={String(shared.k)} onChange={(k) => set({ k: Number(k) })} options={[3, 4, 5, 6, 7, 8, 9].map((n) => ({ value: String(n), label: String(n) }))} />
-          </Field>
-        )}
-        <Field label="Ponto central" hint={shared.method === "continua" ? undefined : "Só na classificação contínua."}>
-          <Select disabled={shared.method !== "continua"} value={shared.center} onChange={(v) => set({ center: v as Center })} options={[
-            { value: "auto", label: "Automático" }, { value: "nenhum", label: "Sem centro (sequencial)" }, { value: "zero", label: "Zero" },
-            { value: "br", label: "Referência do Brasil" }, { value: "mediana", label: "Mediana dos territórios" }]} />
-        </Field>
-        <Field label="Escala de cores">
-          <Select value={shared.palette} onChange={(palette) => set({ palette })} options={PALETTES.map((p) => ({ value: p.id, label: p.name }))} />
-        </Field>
-        <div className="col-span-2 flex flex-col justify-end gap-1.5">
-          <Check checked={shared.real} onChange={(real) => set({ real })} label="Valores reais (deflacionar pelo IPCA)" />
-          <Check checked={compare} onChange={setCompare} label="Dois mapas lado a lado (sincronizados)" />
-        </div>
       </div>
-      <p className="mt-2 text-xs text-muted">
-        {shared.method === "continua" && "Contínua: a cor acompanha o valor, sem classes. A escala automática passa a logarítmica quando a distribuição é muito assimétrica; com 30 ou mais territórios, os 2% extremos de cada ponta recebem a cor do limite. Com ponto central, o tom do meio da paleta fica no centro e cada lado tem amplitude própria: no automático, isso ocorre quando há valores positivos e negativos; na variação entre períodos, o centro é a variação do Brasil. A paleta “Automática” usa azul-verde e troca para vermelho–azul quando há ponto central; qualquer outra paleta escolhida é sempre respeitada."}
-        {shared.method === "jenks" && "Quebras naturais: os limites são postos onde há saltos nos valores, reunindo territórios parecidos e separando os discrepantes. Em mapas com muitos territórios os limites são aproximados por amostragem. Vale também para a variação entre períodos; o ponto central só existe na classificação contínua."}
-        {shared.method === "quantis" && "Quantis: cada classe reúne aproximadamente o mesmo número de territórios — destaca a posição relativa, não a distância entre valores."}
-        {shared.method === "iguais" && "Intervalos iguais: classes com a mesma amplitude de valores — distribuições assimétricas concentram territórios nas primeiras classes."}
-        {shared.method === "geometrico" && "Progressão geométrica: limites crescem multiplicativamente — adequada a distribuições muito assimétricas; ignora valores ≤ 0."}
-      </p>
 
-      <div className={`mt-4 flex gap-5 ${compare ? "flex-col xl:flex-row" : ""}`}>
-        <MapPanel key="a" side={!compare} shared={shared} sync={sync} initial={initial} initialPeriod={sp.get("period")} title={compare ? "Mapa A" : "Mapa"}
-          sel={sel} hov={hov} onHover={setHov} onToggle={onToggle} onSpec={setFocus} focusBox={focusBox} outlines={outlines} />
-        {compare && <MapPanel key="b" side={false} shared={shared} sync={sync} initial={sp.get("var2") ?? ""} title="Mapa B" focusBox={focusBox} outlines={outlines}
-          sel={sel} hov={hov} onHover={setHov} onToggle={onToggle} />}
+      <div className="mt-4">
+        <MapPanel shared={shared} set={set} initial={initial} initialPeriod={sp.get("period")}
+          sel={sel} hov={hov} onHover={setHov} onToggle={onToggle} onSpec={setFocus} focusBox={focusBox} outlines={outlines} containers={containers} />
       </div>
 
       <div id="selecao" className="mt-8 scroll-mt-20">

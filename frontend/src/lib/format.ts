@@ -43,8 +43,9 @@ export function fmtValue(v: number | null | undefined, m: UnitLike, opts: { unit
   if (v === null || v === undefined || Number.isNaN(v)) return "—";
   const d = m.decimals ?? 2;
   const showUnit = opts.unit !== false;
-  if (m.unit === "R$") return (showUnit ? "R$ " : "") + fmtCompact(v, d);
-  if (m.unit.startsWith("R$")) return (showUnit ? "R$ " : "") + fmtCompact(v, d) + (showUnit ? m.unit.slice(2) : "");
+  // moedas: símbolo antes do número ("R$ 1,2 bi", "US$ 9.610 por habitante")
+  const cur = ["R$", "US$"].find((c) => m.unit === c || m.unit.startsWith(c + " "));
+  if (cur) return (showUnit ? cur + " " : "") + fmtCompact(v, d) + (showUnit ? m.unit.slice(cur.length) : "");
   if (m.unit === "%" ) return fmtNum(v, d) + (showUnit ? "%" : "");
   const s = Math.abs(v) >= 1e6 ? fmtCompact(v, d) : fmtNum(v, d);
   return showUnit && !["razão", "índice"].includes(m.unit) ? `${s} ${m.unit}` : s;

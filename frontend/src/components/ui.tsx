@@ -82,6 +82,26 @@ export function Check({ checked, onChange, label, disabled }: { checked: boolean
   );
 }
 
+/** Seletor de como exibir valores monetários: nominais, reais (IPCA), em dólares ou em ouro. */
+export function MoneySelect({ value, onChange, disabled, label = "Valores monetários" }: {
+  value: boolean | "usd" | "ouro"; onChange: (v: boolean | "usd" | "ouro") => void; disabled?: boolean; label?: string;
+}) {
+  const cur = value === true ? "ipca" : value === false ? "" : value;
+  return (
+    <label className={`flex flex-wrap items-center gap-2 text-sm ${disabled ? "opacity-50" : ""}`}>
+      <span>{label}</span>
+      <select className="rounded border border-line bg-surface px-2 py-1 text-sm" value={cur} disabled={disabled} aria-label={label}
+        title="Dólares e ouro usam a cotação de cada período (média do ano para fluxos, dezembro para estoques); não corrigem a inflação."
+        onChange={(e) => onChange(e.target.value === "ipca" ? true : e.target.value === "" ? false : (e.target.value as "usd" | "ouro"))}>
+        <option value="">Nominais (R$)</option>
+        <option value="ipca">Reais — corrigidos pelo IPCA</option>
+        <option value="usd">Em dólares (US$)</option>
+        <option value="ouro">Em gramas de ouro</option>
+      </select>
+    </label>
+  );
+}
+
 export function Button({ children, onClick, variant = "ghost", disabled, type = "button", title }: {
   children: ReactNode; onClick?: () => void; variant?: "primary" | "ghost"; disabled?: boolean; type?: "button" | "submit"; title?: string;
 }) {
@@ -154,7 +174,7 @@ export function Provenance({ meta, period, extra }: { meta: VarMeta; period?: st
       <p>
         <NatureTag nature={meta.nature} />{" "}
         <strong className="font-medium text-ink">{meta.name}</strong> · unidade: {meta.unit}
-        {meta.real ? " (preços constantes)" : meta.unit.startsWith("R$") ? " (preços correntes)" : ""}
+        {meta.real ? " (preços constantes)" : meta.moeda ? " (convertido pela cotação de cada período, sem correção pela inflação)" : meta.unit.startsWith("R$") ? " (preços correntes)" : ""}
         {period ? ` · referência: ${period}` : ""}
         {meta.formula && <> · fórmula: <code className="num">{meta.formula}</code></>}
       </p>

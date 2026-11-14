@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
+import { useMoney } from "@/lib/money";
 import { useCallback, useState } from "react";
 import { Chart, type Theme } from "@/components/Chart";
 import { IndicatorSelect, useCatalog } from "@/components/pickers";
-import { Button, Card, Check, Field, Loading, Notice, Provenance } from "@/components/ui";
+import { Button, Card, MoneySelect, Field, Loading, Notice, Provenance } from "@/components/ui";
 import { qs, useApi, type VarMeta } from "@/lib/api";
 import { lineOption, type Serie } from "@/lib/charts";
 import { download, fmtNum, fmtValue, periodLabel } from "@/lib/format";
@@ -19,7 +20,7 @@ export function TerritorialCompare({ terrs, focus }: { terrs: { code: string; le
   const { indicators } = useCatalog();
   const [vars, setVars] = useState<string[]>(DEFAULT_VARS);
   const [add, setAdd] = useState("pib_nominal");
-  const [real, setReal] = useState(false);
+  const [real, setReal] = useMoney();
   const [picked, setPicked] = useState<string | null>(null);
   const codes = terrs.map((t) => t.code).join(",");
   const levels = [...new Set(terrs.map((t) => t.level))];
@@ -51,7 +52,7 @@ export function TerritorialCompare({ terrs, focus }: { terrs: { code: string; le
               <Button onClick={() => !vars.includes(add) && vars.length < 12 && setVars([...vars, add])}>Adicionar</Button>
             </div>
           </Field>
-          <div className="pb-1.5"><Check checked={real} onChange={setReal} label="Valores monetários reais (IPCA)" /></div>
+          <div className="pb-1.5"><MoneySelect value={real} onChange={setReal} /></div>
         </div>
       </div>
       {cmp.error && <Notice kind="error">{cmp.error}</Notice>}

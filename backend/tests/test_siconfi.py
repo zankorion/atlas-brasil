@@ -65,6 +65,23 @@ def test_municipio_sem_declaracao_nao_gera_observacao():
         "A": {"code": "A", "itens": {"receitas": 90, "despesas": 100, "funcoes": 0}, "receita_total": 10.0, "iptu": None, "despesa_saude": None},
         "B": {"code": "B", "itens": {"receitas": 0, "despesas": 0, "funcoes": 0}},
     }
-    rows = rows_for(recs, "2023")
+    rows, left_out = rows_for(recs, "2023")
+    assert left_out == []
     assert rows["fin_receita_total"] == [("A", "MUN", "2023", 10.0, None)]
     assert rows["fin_iptu"] == [("A", "MUN", "2023", None, "nd")] and rows["fin_despesa_saude"] == [("A", "MUN", "2023", None, "nd")]
+
+
+def test_declaracao_inconsistente_fica_de_fora_com_motivo():
+    from atlas.pipelines.siconfi import inconsistency
+
+    ok = {"receita_total": 100.0, "receita_corrente": 90.0, "despesa_total": 95.0}
+    assert inconsistency(ok) is None
+    assert inconsistency({**ok, "receita_total": 364e9, "despesa_total": 1.1e9}).startswith("receita total equivale a 330,9 vezes")
+    assert "nula ou negativa" in inconsistency({**ok, "receita_corrente": -5.0})
+    assert "despesa total nula" in inconsistency({**ok, "despesa_total": 0.0})
+    assert inconsistency({"receita_total": 100.0, "receita_corrente": 90.0, "despesa_total": None}) is None  # sem despesa declarada: nada a comparar
+    recs = {"X": {"code": "X", "itens": {"receitas": 9, "despesas": 9, "funcoes": 9}, "receita_total": 364e9, "receita_corrente": 9e8,
+                  "despesa_total": 1.1e9, "iptu": 5.0}}
+    rows, left_out = rows_for(recs, "2023")
+    assert rows["fin_receita_total"] == [("X", "MUN", "2023", None, "inc")] and rows["fin_iptu"] == [("X", "MUN", "2023", None, "inc")]
+    assert left_out[0]["codigo"] == "X" and left_out[0]["receita_total_declarada"] == 364e9  # o declarado fica registrado

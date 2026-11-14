@@ -12,6 +12,7 @@ from ..data import LEVELS, DataAccess, Variable
 from ..db import get_session
 from ..models import IngestionRun, Territory
 from ..config import settings
+from ..data import money_mode
 from ..stats.formula import FormulaError
 
 _cache: OrderedDict = OrderedDict()
@@ -46,7 +47,11 @@ class Ctx:
         return level
 
     def resolve(self, spec: str, level: str, periods: list[str] | None = None, codes: list[str] | None = None,
-                real: bool = False) -> Variable:
+                real: bool | str = False) -> Variable:
+        try:
+            real = money_mode(real)
+        except FormulaError as e:
+            raise HTTPException(422, str(e)) from None
         key = (self.version, spec, level, tuple(periods) if periods is not None else None, real) if codes is None else None
         if key and key in _cache:
             _cache.move_to_end(key)

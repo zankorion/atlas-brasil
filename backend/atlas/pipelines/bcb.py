@@ -59,6 +59,18 @@ def run_estban(start: int | None = None, end: int | None = None, refresh: bool =
             save_observations(s, run, k, rows[k])
 
 
+def run_ouro(refresh: bool = True) -> None:
+    """Preço internacional do ouro (Banco Mundial), mensal, desde o início da série em reais."""
+    from ..connectors import worldbank
+
+    with ingestion_run("ouro", "bm_commodities") as (s, run):
+        serie, updated, url = worldbank.fetch_gold(refresh=refresh)
+        rows = [("BR", "BR", p, v, None) for p, v in serie if p >= "1994-07"]
+        run.publication = f"Pink Sheet do Banco Mundial ({updated or 'sem data de atualização'}); último mês: {rows[-1][2]}"
+        run.params = {"url": url, "meses": len(rows)}
+        save_observations(s, run, "ouro_usd", rows)
+
+
 def run_sgs(refresh: bool = True) -> None:
     specs = [i for i in indicator_specs() if isinstance(i.get("origem"), dict) and i["origem"].get("tipo") == "sgs"]
     start = date(1994, 7, 1)  # marco inicial da série monetária em reais

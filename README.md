@@ -36,7 +36,7 @@ atlas-brasil/
 ├── backend/                 Python 3.12+ · FastAPI · SQLAlchemy · Polars
 │   ├── atlas/
 │   │   ├── catalog/         catálogos versionados em YAML: fontes, bases, unidades, metodologias, indicadores
-│   │   ├── connectors/      clientes das fontes oficiais (IBGE Localidades/Malhas/SIDRA/Biblioteca; BCB SGS, ESTBAN, postos, SCR.data e Pix; Tesouro SICONFI)
+│   │   ├── connectors/      clientes das fontes oficiais (IBGE Localidades/Malhas/SIDRA/Biblioteca; BCB SGS, ESTBAN, postos, SCR.data e Pix; Tesouro SICONFI; Banco Mundial, preço do ouro)
 │   │   ├── pipelines/       cargas: territórios, emancipações, PIB, população, domicílios, censo agro, ESTBAN, cooperativas, SCR, SGS, agregação
 │   │   ├── stats/           motor de fórmulas (unidades, ausências, deflacionamento) e estatísticas
 │   │   ├── api/             rotas: catálogo, dados (mapa, séries, perfis, exportação) e laboratório
@@ -44,7 +44,7 @@ atlas-brasil/
 │   │   ├── store.py         gravação versionada de observações + registro de cargas
 │   │   └── cli.py           migrate · seed · ingest · status
 │   ├── migrations/          Alembic (0001 esquema, 0002 geometria PostGIS)
-│   └── tests/               pytest (48 testes)
+│   └── tests/               pytest (54 testes)
 ├── frontend/                Next.js 16 · React 19 · TypeScript · Tailwind 4 · MapLibre GL · ECharts
 │   └── src/{app,views,components,lib}
 ├── data/                    (não versionado) banco SQLite local, cache bruto das fontes, malhas
@@ -116,6 +116,7 @@ python -m atlas.cli ingest censo_agro       # SIDRA 6754 + Gini fundiário
 python -m atlas.cli ingest estban --inicio 2024   # arquivos de dezembro do ESTBAN
 python -m atlas.cli ingest cooperativas     # postos de atendimento de cooperativas (dezembro, 2016+)
 python -m atlas.cli ingest scr              # carteira de crédito por UF e tipo de instituição (dezembro, 2012+)
+python -m atlas.cli ingest ouro             # preço internacional do ouro (Banco Mundial), para valores em ouro
 python -m atlas.cli ingest pix              # Pix por município: totais anuais (2021+)
 python -m atlas.cli ingest siconfi          # finanças municipais (DCA 2014+); horas de carga, retomável
 python -m atlas.cli ingest agregacao        # somas para regiões imediatas e intermediárias
@@ -166,6 +167,9 @@ docker compose exec api python -m atlas.cli ingest all
 - **Finanças municipais (SICONFI)**: valores declarados pelas prefeituras, sem auditoria, com erros de classificação e declarações
   incompletas. Só por município (nem todos entregam todo ano, então não há totais de UF ou do país). A API responde um município por
   consulta: a série completa leva horas, mas a carga retoma de onde parou.
+- **Valores em dólares e em ouro**: conversão pela cotação de cada período (média do ano para fluxos, dezembro para estoques),
+  sem correção pela inflação. A série em dólares mistura a evolução do indicador com a do câmbio; em ouro, também a do preço do
+  metal. O ouro usa o preço internacional (Banco Mundial), não a cotação do mercado brasileiro.
 - **PNAD Contínua**: só Brasil, regiões e UFs; é amostral e o Atlas não exibe o erro de amostragem.
 - **Participações** (setoriais, de crédito, de soja): onde a fonte traz parcela negativa ou maior que o total, o valor fica ausente.
 - **PIB real municipal** não existe na fonte; a opção "valores reais" aplica o IPCA nacional.

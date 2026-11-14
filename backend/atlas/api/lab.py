@@ -26,7 +26,7 @@ class ScatterReq(BaseModel):
     level: str = "MUN"
     period: str | None = None
     period_y: str | None = None
-    real: bool = False
+    real: str | bool = ""
     log_x: bool = False
     log_y: bool = False
     uf: str | None = None
@@ -87,6 +87,7 @@ def scatter(req: ScatterReq, c: Ctx = Depends(ctx)):
 class FormulaReq(BaseModel):
     expr: str
     level: str = "MUN"
+    real: str | bool = ""
 
 
 @router.post("/formula")
@@ -107,7 +108,8 @@ def formula(req: FormulaReq, c: Ctx = Depends(ctx)):
                references=[dict(id=r, name=c.da.info(r)["name"], unit=c.da.info(r)["unit_label"]) for r in refs])
     if periods:
         try:
-            df, meta = frame_at(c, spec, level, periods[-1])
+            df, meta = frame_at(c, spec, level, periods[-1], req.real)
+            out["unit"] = meta["unit"] if meta.get("moeda") else out["unit"]
         except HTTPException as e:
             return dict(valid=False, error=e.detail)
         vals = [v for v in df["value"].to_list() if v is not None]
@@ -119,7 +121,7 @@ def formula(req: FormulaReq, c: Ctx = Depends(ctx)):
 
 
 @router.get("/ranking")
-def ranking(var: str, level: str = "MUN", period: str | None = None, real: bool = False, uf: str | None = None,
+def ranking(var: str, level: str = "MUN", period: str | None = None, real: str = "", uf: str | None = None,
             n: int = Query(20, ge=1, le=6000), order: str = "desc", pop_min: float | None = None, c: Ctx = Depends(ctx)):
     level = c.level(level)
     period = c.period_or_latest(var, level, period)
@@ -140,7 +142,7 @@ def ranking(var: str, level: str = "MUN", period: str | None = None, real: bool 
 
 
 @router.get("/distribution")
-def distribution(var: str, level: str = "MUN", period: str | None = None, real: bool = False, uf: str | None = None,
+def distribution(var: str, level: str = "MUN", period: str | None = None, real: str = "", uf: str | None = None,
                  bins: int = Query(30, ge=5, le=80), log: bool = False, weight_pop: bool = False, c: Ctx = Depends(ctx)):
     """Histograma, estatísticas descritivas e medidas de desigualdade territorial."""
     level = c.level(level)
@@ -178,7 +180,7 @@ def distribution(var: str, level: str = "MUN", period: str | None = None, real: 
 
 
 @router.get("/groups")
-def groups(var: str, level: str = "MUN", period: str | None = None, real: bool = False, by: str = "regiao",
+def groups(var: str, level: str = "MUN", period: str | None = None, real: str = "", by: str = "regiao",
            c: Ctx = Depends(ctx)):
     """Comparação de grupos territoriais (por grande região ou UF): distribuição do indicador em cada grupo."""
     level = c.level(level)
@@ -216,7 +218,7 @@ class Condition(BaseModel):
     value2: float | None = None
     ref: str | None = None  # mediana | media | br
     period: str | None = None
-    real: bool = False
+    real: str | bool = ""
 
 
 class SearchReq(BaseModel):

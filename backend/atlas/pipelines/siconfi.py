@@ -21,16 +21,44 @@ FIELDS = {
 }
 
 
-def rows_for(records: dict[str, dict], period: str) -> dict[str, list]:
-    """Linhas por indicador. Conta que não consta da declaração fica ausente (flag nd), nunca zero."""
+# Uma declaração é deixada de fora quando é contabilmente impossível por si só — sem comparar com outros municípios:
+RATIO_MIN, RATIO_MAX = 0.2, 5.0  # receita total / despesa total
+
+
+def inconsistency(rec: dict) -> str | None:
+    """Motivo pelo qual a declaração é inconsistente, ou None. Regras deliberadamente conservadoras."""
+    rt, rc, dt = rec.get("receita_total"), rec.get("receita_corrente"), rec.get("despesa_total")
+    if rt is not None and rt <= 0:
+        return "receita total nula ou negativa (deduções maiores que a receita bruta)"
+    if rc is not None and rc <= 0:
+        return "receita corrente nula ou negativa (deduções maiores que a receita bruta)"
+    if rt is not None and dt is not None and dt > 0 and not (RATIO_MIN <= rt / dt <= RATIO_MAX):
+        return f"receita total equivale a {rt / dt:.1f} vezes a despesa total (aceito: de {RATIO_MIN} a {RATIO_MAX})".replace(".", ",")
+    if rt is not None and rt > 0 and dt is not None and dt <= 0:
+        return "despesa total nula com receita declarada"
+    return None
+
+
+def rows_for(records: dict[str, dict], period: str) -> tuple[dict[str, list], list[dict]]:
+    """Linhas por indicador e a lista das declarações deixadas de fora por inconsistência.
+
+    Conta que não consta da declaração fica ausente (flag nd), nunca zero. Declaração inconsistente tem todos os
+    valores registrados como ausentes (flag inc): o que foi declarado não é corrigido nem estimado, e fica
+    guardado, com o motivo, no histórico da carga.
+    """
     out: dict[str, list] = {k: [] for k in FIELDS}
+    left_out: list[dict] = []
     for code, rec in records.items():
         if not any(rec.get("itens", {}).values()):
             continue  # município não entregou a DCA do exercício: nenhuma observação
+        why = inconsistency(rec)
+        if why:
+            left_out.append(dict(codigo=code, motivo=why, receita_total_declarada=rec.get("receita_total"),
+                                 despesa_total_declarada=rec.get("despesa_total")))
         for ind, field in FIELDS.items():
-            v = rec.get(field)
-            out[ind].append((code, "MUN", period, v, None if v is not None else "nd"))
-    return out
+            v = None if why else rec.get(field)
+            out[ind].append((code, "MUN", period, v, "inc" if why else None if v is not None else "nd"))
+    return out, left_out
 
 
 def run(start: int = siconfi.FIRST_YEAR, end: int | None = None, refresh: bool = False) -> None:
@@ -41,10 +69,12 @@ def run(start: int = siconfi.FIRST_YEAR, end: int | None = None, refresh: bool =
             codes = sorted(s.scalars(select(Territory.code).where(Territory.level == "MUN")))
             records, failures = siconfi.fetch_year(year, codes, refresh=refresh)
             delivered = sum(1 for r in records.values() if any(r.get("itens", {}).values()))
-            rows = rows_for(records, str(year))
-            info = dict(exercicio=year, municipios=len(codes), lidos=len(records), com_declaracao=delivered, falhas_de_rede=failures)
+            rows, left_out = rows_for(records, str(year))
+            info = dict(exercicio=year, municipios=len(codes), lidos=len(records), com_declaracao=delivered, falhas_de_rede=failures,
+                        inconsistentes=len(left_out))
             log.info("SICONFI: exercício lido", extra=ctx(**info))
-            run_.publication = f"DCA {year} — {delivered} de {len(codes)} municípios com declaração"
-            run_.params = {**run_.params, **info}
+            run_.publication = (f"DCA {year} — {delivered} de {len(codes)} municípios com declaração"
+                                + (f"; {len(left_out)} deixadas de fora por inconsistência" if left_out else ""))
+            run_.params = {**run_.params, **info, "declaracoes_inconsistentes": left_out}
             for ind, r in rows.items():
                 save_observations(s, run_, ind, r)

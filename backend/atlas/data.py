@@ -26,6 +26,23 @@ class Variable:
     meta: dict
 
 
+GRAMS_PER_TROY_OZ = 31.1034768
+
+
+def money_mode(real: bool | str | None) -> str:
+    """Normaliza a opção de valores monetários: '' (nominal), 'ipca', 'usd' ou 'ouro'."""
+    if real is True:
+        return "ipca"
+    v = str(real or "").strip().lower()
+    if v in ("true", "1", "ipca", "real"):
+        return "ipca"
+    if v in ("usd", "ouro"):
+        return v
+    if v in ("", "false", "0", "brl", "none"):
+        return ""
+    raise FormulaError(f"Opção de valores monetários inválida: {real}. Use ipca, usd ou ouro.")
+
+
 class DataAccess:
     def __init__(self, session: Session):
         self.s = session
@@ -94,10 +111,62 @@ class DataAccess:
         self._defl[key] = (out, label)
         return self._defl[key]
 
+
+    def _monthly(self, indicator_id: str) -> dict[str, float]:
+        return {p: v for p, v in self.s.execute(select(Observation.period, Observation.value).where(
+            Observation.indicator_id == indicator_id, Observation.level == "BR", Observation.is_current.is_(True))).all() if v}
+
+    def converter(self, kind: str, freq: str, stock_flow: str) -> tuple[dict[str, float], str]:
+        """Fatores (multiplicativos) que convertem reais nominais em dólares ou gramas de ouro, por período.
+
+        Mesma regra do deflacionamento: fluxos anuais usam a média do ano (só anos com 12 meses publicados);
+        estoques usam dezembro (câmbio de fim de período; ouro pela média de dezembro); séries mensais, o próprio mês.
+        """
+        key = (kind, freq, stock_flow)
+        if key in self._defl:
+            return self._defl[key]
+        avg = self._monthly("cambio")
+        if not avg:
+            raise FormulaError("Câmbio indisponível: carregue as séries do SGS antes de converter valores.")
+        if kind == "usd":
+            end = self._monthly("cambio_fim")
+            if stock_flow == "estoque" and not end:
+                raise FormulaError("Câmbio de fim de período indisponível: carregue as séries do SGS.")
+            price_avg, price_end = avg, end  # R$ por dólar
+            what, src = "dólares", "taxa de câmbio de venda do Banco Central"
+        else:
+            gold = self._monthly("ouro_usd")
+            if not gold:
+                raise FormulaError("Preço do ouro indisponível: carregue a série do Banco Mundial (ingest ouro).")
+            price_avg = {p: gold[p] * avg[p] / GRAMS_PER_TROY_OZ for p in gold if p in avg}  # R$ por grama
+            price_end = price_avg  # não há cotação de fim de período: usa-se a média de dezembro
+            what, src = "gramas de ouro", "preço médio mensal do ouro (Banco Mundial) convertido pelo câmbio do Banco Central"
+        if freq == "M":
+            table = price_end if stock_flow == "estoque" else price_avg
+            out = {p: 1 / v for p, v in table.items()}
+            rule = "cotação do próprio mês"
+        elif stock_flow == "estoque":
+            out = {p[:4]: 1 / v for p, v in price_end.items() if p.endswith("-12")}
+            rule = "cotação de dezembro de cada ano"
+        else:
+            by_year: dict[str, list[float]] = {}
+            for p, v in price_avg.items():
+                by_year.setdefault(p[:4], []).append(v)
+            out = {y: 12 / sum(v) for y, v in by_year.items() if len(v) == 12}
+            rule = "cotação média de cada ano"
+        note = f"Valores convertidos em {what} pela {rule} ({src}). Não há correção pela inflação; períodos sem cotação ficam ausentes."
+        self._defl[key] = (out, note)
+        return self._defl[key]
+
     # ------------------------------------------------------------------ variáveis
     def resolve(self, spec: str, level: str, periods: list[str] | None = None, codes: list[str] | None = None,
-                real: bool = False) -> Variable:
-        """`spec` é o id de um indicador do catálogo ou '=expressão' (indicador personalizado)."""
+                real: bool | str = False) -> Variable:
+        """`spec` é o id de um indicador do catálogo ou '=expressão' (indicador personalizado).
+
+        `real` escolhe como exibir valores monetários nominais: falso (reais correntes), verdadeiro/"ipca"
+        (preços constantes), "usd" (dólares) ou "ouro" (gramas de ouro).
+        """
+        mode = money_mode(real)
         spec = spec.strip()
         custom = spec.startswith("=")
         expr = spec[1:] if custom else spec
@@ -109,25 +178,31 @@ class DataAccess:
         if info and info["levels"] and level not in info["levels"]:
             raise FormulaError(f"“{info['name']}” não está disponível no nível {LEVEL_NAMES.get(level, level)}.")
         can_deflate = False
-        if real:
+        if mode:
             probe = evaluate(expr, self, level, [], codes)
             can_deflate = probe.nominal and dict(probe.unit.dims).get("BRL", 0) == 1
-        res = evaluate(f"real({expr})" if can_deflate else expr, self, level, periods, codes)
+        wrap = {"ipca": "real", "usd": "usd", "ouro": "ouro"}.get(mode)
+        res = evaluate(f"{wrap}({expr})" if can_deflate else expr, self, level, periods, codes)
         if info:
             unit_label, name = info["unit_label"], info["name"]
             unit = UnitT.of(info["dims"], info["percent"])
         else:
             unit, unit_label, name = res.unit, res.unit.label(), f"Indicador personalizado: {expr}"
+        if can_deflate and mode in ("usd", "ouro"):
+            # rótulo da unidade na moeda escolhida (ex.: "R$ por habitante" -> "US$ por habitante")
+            target = "US$" if mode == "usd" else "g de ouro"
+            unit_label = unit_label.replace("R$", target) if "R$" in unit_label else res.unit.label()
         comps = [self.info(c) for c in res.components]
         notes = list(dict.fromkeys(res.notes))
         if res.out_of_range:
             notes.append(f"{res.out_of_range} observação(ões) com participação fora de 0–100% (parte negativa ou maior que o total na fonte) foram tratadas como ausentes.")
-        if real and not can_deflate:
-            notes.append("Deflacionamento não aplicado: o indicador não é um valor monetário nominal.")
+        if mode and not can_deflate:
+            notes.append(("Deflacionamento não aplicado" if mode == "ipca" else "Conversão não aplicada") + ": o indicador não é um valor monetário nominal.")
         meta = dict(
             spec=spec, id=None if custom else expr, name=name, short_name=(info or {}).get("short_name") or name,
             unit=unit_label, custom=custom, formula=expr if custom else (info or {}).get("formula"),
-            nature="personalizado" if custom else info["nature"], frequency=res.freq, real=can_deflate,
+            nature="personalizado" if custom else info["nature"], frequency=res.freq, real=can_deflate and mode == "ipca",
+            moeda=mode if can_deflate and mode in ("usd", "ouro") else None,
             decimals=(info or {}).get("decimals", 2), percent=unit.percent,
             limitations=(info or {}).get("limitations"), breaks=(info or {}).get("breaks") or [],
             methodology_id=(info or {}).get("methodology_id"), div_zero=res.div_zero, out_of_range=res.out_of_range, notes=notes,
@@ -182,6 +257,19 @@ class DataAccess:
             else:
                 out.append(r)
         return list(dict.fromkeys(out))
+
+    def flagged(self, spec: str, level: str, period: str, flag: str = "inc") -> list[str]:
+        """Territórios cuja observação de base, no período, tem a marca dada (ex.: declaração inconsistente)."""
+        try:
+            ids = self._leaf_ids(spec)
+        except FormulaError:
+            return []
+        if not ids:
+            return []
+        q = select(Observation.territory_code).where(
+            Observation.indicator_id.in_(ids), Observation.level == level, Observation.period == period,
+            Observation.is_current.is_(True), Observation.flag == flag).distinct()
+        return sorted(self.s.scalars(q))
 
     def territories(self, level: str, uf: str | None = None) -> pl.DataFrame:
         q = select(Territory.code, Territory.name, Territory.uf_code, Territory.regiao_code).where(Territory.level == level)

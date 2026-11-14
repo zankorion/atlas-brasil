@@ -20,6 +20,8 @@ export function useCatalog() {
   return { indicators: inds.data ?? [], dimensions: meta.data?.dimensions ?? [], meta: meta.data, custom, error: inds.error ?? meta.error, loading: inds.loading };
 }
 
+const CUSTOM_CAT = "_personalizados";
+
 /** Seletor de indicador agrupado por dimensão; inclui indicadores personalizados salvos. */
 export function IndicatorSelect({ value, onChange, level, frequency, label = "Indicador", allowCustom = true, placeholder }: {
   value: string; onChange: (v: string) => void; level?: string; frequency?: "A" | "M"; label?: string; allowCustom?: boolean;
@@ -50,6 +52,47 @@ export function IndicatorSelect({ value, onChange, level, frequency, label = "In
         </optgroup>
       )}
     </select>
+  );
+}
+
+/** Indicador em dois passos: primeiro a categoria (dimensão), depois o indicador daquela categoria. */
+export function IndicatorPicker({ value, onChange, level, frequency }: {
+  value: string; onChange: (v: string) => void; level?: string; frequency?: "A" | "M";
+}) {
+  const { indicators, dimensions, custom } = useCatalog();
+  const ok = useMemo(() => indicators.filter((i) => i.status === "disponivel" && (!level || i.levels.includes(level)) && (!frequency || i.frequency === frequency)),
+    [indicators, level, frequency]);
+  const cats = useMemo(() => {
+    const out = dimensions.map((d) => ({ id: d.id, name: d.name, n: ok.filter((i) => i.dimension === d.id).length })).filter((c) => c.n > 0);
+    if (frequency !== "M" && (custom.length > 0 || value.startsWith("="))) out.push({ id: CUSTOM_CAT, name: "Personalizados (salvos neste navegador)", n: custom.length });
+    return out;
+  }, [dimensions, ok, custom, frequency, value]);
+  // a categoria acompanha o indicador atual (ex.: vindo do endereço); sem indicador, vale a última escolhida
+  const ofValue = value.startsWith("=") ? CUSTOM_CAT : ok.find((i) => i.id === value)?.dimension ?? "";
+  const [picked, setPicked] = useState("");
+  const cat = ofValue || picked;
+  const items = cat === CUSTOM_CAT ? [] : ok.filter((i) => i.dimension === cat);
+  const known = value.startsWith("=") ? custom.some((c) => "=" + c.expr === value) : true;
+  return (
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+      <label className="block text-sm">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">1. Categoria</span>
+        <select className={inputCls} value={cat} aria-label="Categoria do indicador"
+          onChange={(e) => { setPicked(e.target.value); onChange(""); }}>
+          <option value="">— escolha uma categoria —</option>
+          {cats.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.n})</option>)}
+        </select>
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">2. Indicador</span>
+        <select className={inputCls} value={value} aria-label="Indicador" disabled={!cat} onChange={(e) => onChange(e.target.value)}>
+          <option value="">{cat ? "— escolha um indicador —" : "— escolha antes a categoria —"}</option>
+          {items.map((i) => <option key={i.id} value={i.id}>{i.short_name !== i.name ? `${i.short_name} — ${i.name}` : i.name}</option>)}
+          {cat === CUSTOM_CAT && custom.map((c) => <option key={c.expr} value={"=" + c.expr}>{c.name}</option>)}
+          {cat === CUSTOM_CAT && !known && <option value={value}>{value}</option>}
+        </select>
+      </label>
+    </div>
   );
 }
 
@@ -158,7 +201,7 @@ export function TerritorySearch({ onPick, level, placeholder = "Buscar municípi
                 onMouseEnter={() => setIdx(i)}
                 className={`flex w-full items-baseline justify-between gap-3 px-3 py-1.5 text-left text-sm ${i === idx ? "bg-accent-soft" : ""}`}
               >
-                <span>{t.name}{t.uf && t.level !== "UF" ? <span className="text-muted"> · {t.uf}</span> : null}</span>
+                <span>{t.code === "BR" ? "Todo o Brasil" : t.name}{t.uf && t.level !== "UF" ? <span className="text-muted"> · {t.uf}</span> : null}</span>
                 <span className="shrink-0 text-xs text-muted">{LV[t.level]}</span>
               </button>
             </li>

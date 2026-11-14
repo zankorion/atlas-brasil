@@ -1,9 +1,10 @@
 "use client";
+import { useMoney } from "@/lib/money";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Chart, type Theme } from "@/components/Chart";
 import { IndicatorSelect, TerritoryChips, TerritorySearch, useCatalog } from "@/components/pickers";
-import { Button, Card, Check, Field, Loading, Notice, Page, Provenance, Seg } from "@/components/ui";
+import { Button, Card, MoneySelect, Field, Loading, Notice, Page, Provenance, Seg } from "@/components/ui";
 import { api, qs, useApi, type Territory, type VarMeta } from "@/lib/api";
 import { allPeriods, lineOption, seriesCsv, serieLabel, transformSeries, type Serie, type Transform } from "@/lib/charts";
 import { download, fmtValue, periodLabel, slug } from "@/lib/format";
@@ -17,7 +18,7 @@ export default function SeriesView() {
   const [freq, setFreq] = useState<"A" | "M">((sp.get("freq") as "A" | "M") ?? "A");
   const [spec, setSpec] = useState(sp.get("var") ?? "pib_per_capita");
   const [terrs, setTerrs] = useState<Territory[]>([BR]);
-  const [real, setReal] = useState(false);
+  const [real, setReal] = useMoney();
   const [transform, setTransform] = useState<Transform>("nivel");
 
   // Territórios iniciais vindos da URL (?codes=...)
@@ -67,7 +68,7 @@ export default function SeriesView() {
               <Seg label="Transformação" value={transform} onChange={setTransform}
                 options={[{ value: "nivel", label: "Nível" }, { value: "indice", label: "Base 100" }, { value: "variacao", label: "Var. % anual" }]} />
             </Field>
-            <Check checked={real} onChange={setReal} label="Valores reais (IPCA)" disabled={!ind?.monetary && !spec.startsWith("=")} />
+            <MoneySelect value={real} onChange={setReal} disabled={!ind?.monetary && !spec.startsWith("=")} />
             {ind && !ind.monetary && <p className="text-xs text-muted">O deflacionamento só se aplica a valores monetários nominais.</p>}
           </div>
         </Card>

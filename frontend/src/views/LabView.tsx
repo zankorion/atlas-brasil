@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
+import { useMoney } from "@/lib/money";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { axis, baseOption, Chart, type Theme } from "@/components/Chart";
 import { IndicatorSelect, LEVEL_OPTIONS, PeriodSelect, UfSelect, useCatalog, usePeriods } from "@/components/pickers";
-import { Button, Card, Check, Field, Loading, Notice, Page, Provenance, Select, Stat, Tabs, inputCls } from "@/components/ui";
+import { Button, Card, Check, MoneySelect, Field, Loading, Notice, Page, Provenance, Select, Stat, Tabs, inputCls } from "@/components/ui";
 import { API, getCustom, post, qs, saveCustom, useApi, type Stats, type VarMeta } from "@/lib/api";
 import { axisFmt, download, fmtNum, fmtP, fmtValue, LEVEL_NAMES, periodLabel } from "@/lib/format";
 
@@ -34,7 +35,7 @@ function Scatter() {
   const [y, setY] = useState(sp.get("y") ?? "credito_pc");
   const [level, setLevel] = useState("MUN");
   const [uf, setUf] = useState("");
-  const [real, setReal] = useState(false);
+  const [real, setReal] = useMoney();
   const [logX, setLogX] = useState(true);
   const [logY, setLogY] = useState(true);
   const [popMin, setPopMin] = useState("");
@@ -95,7 +96,7 @@ function Scatter() {
           </div>
           <Field label="Recorte"><UfSelect value={uf} onChange={setUf} /></Field>
           <Field label="População mínima" hint="Opcional. Filtra pelo porte populacional."><input className={inputCls} inputMode="numeric" value={popMin} onChange={(e) => setPopMin(e.target.value.replace(/\D/g, ""))} placeholder="ex.: 50000" /></Field>
-          <Check checked={real} onChange={setReal} label="Valores monetários reais (IPCA)" />
+          <MoneySelect value={real} onChange={setReal} />
           {!px.loading && !py.loading && common.length === 0 && <Notice kind="warn">As duas variáveis não têm nenhum período em comum neste nível territorial.</Notice>}
         </div>
       </Card>
@@ -162,7 +163,7 @@ function Distribution() {
   const [spec, setSpec] = useState("pib_per_capita");
   const [level, setLevel] = useState("MUN");
   const [uf, setUf] = useState("");
-  const [real, setReal] = useState(false);
+  const [real, setReal] = useMoney();
   const [log, setLog] = useState(true);
   const [wp, setWp] = useState(false);
   const { periods, period, setPeriod } = usePeriod(spec, level);
@@ -192,7 +193,7 @@ function Distribution() {
           <Field label="Recorte"><UfSelect value={uf} onChange={setUf} /></Field>
           <Check checked={log} onChange={setLog} label="Histograma em escala logarítmica" />
           <Check checked={wp} onChange={setWp} label="Ponderar desigualdade pela população" />
-          <Check checked={real} onChange={setReal} label="Valores monetários reais (IPCA)" />
+          <MoneySelect value={real} onChange={setReal} />
         </div>
       </Card>
       <div className="space-y-4">
@@ -240,7 +241,7 @@ function Ranking() {
   const [spec, setSpec] = useState(sp.get("var") ?? "icr");
   const [level, setLevel] = useState("MUN");
   const [uf, setUf] = useState("");
-  const [real, setReal] = useState(false);
+  const [real, setReal] = useMoney();
   const [order, setOrder] = useState("desc");
   const [n, setN] = useState("50");
   const [popMin, setPopMin] = useState("");
@@ -260,7 +261,7 @@ function Ranking() {
           </div>
           <Field label="Recorte"><UfSelect value={uf} onChange={setUf} /></Field>
           <Field label="População mínima"><input className={inputCls} inputMode="numeric" value={popMin} onChange={(e) => setPopMin(e.target.value.replace(/\D/g, ""))} placeholder="ex.: 100000" /></Field>
-          <Check checked={real} onChange={setReal} label="Valores monetários reais (IPCA)" />
+          <MoneySelect value={real} onChange={setReal} />
         </div>
       </Card>
       <div className="space-y-4">
@@ -295,7 +296,7 @@ function Groups() {
   const [spec, setSpec] = useState("icr");
   const [level, setLevel] = useState("MUN");
   const [by, setBy] = useState("regiao");
-  const [real, setReal] = useState(false);
+  const [real, setReal] = useMoney();
   const { periods, period, setPeriod } = usePeriod(spec, level);
   const byOk = level === "UF" ? "regiao" : by;
   const { data, error, loading } = useApi<GroupResp>(period ? `/api/lab/groups${qs({ var: spec, level, period, real, by: byOk })}` : null);
@@ -324,7 +325,7 @@ function Groups() {
             <Field label="Período"><PeriodSelect value={period} onChange={setPeriod} periods={periods} /></Field>
           </div>
           <Field label="Agrupar por"><Select value={byOk} onChange={setBy} options={[{ value: "regiao", label: "Grande região" }, ...(level === "UF" ? [] : [{ value: "uf", label: "Unidade da Federação" }])]} /></Field>
-          <Check checked={real} onChange={setReal} label="Valores monetários reais (IPCA)" />
+          <MoneySelect value={real} onChange={setReal} />
         </div>
       </Card>
       <div className="space-y-4">
@@ -373,16 +374,17 @@ function Builder() {
   const [name, setName] = useState("");
   const [level, setLevel] = useState("MUN");
   const [res, setRes] = useState<FormulaResp | null>(null);
+  const [money] = useMoney();
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState("");
   useEffect(() => {
     if (!expr.trim()) return;
     const t = setTimeout(() => {
       setBusy(true);
-      post<FormulaResp>("/api/lab/formula", { expr, level }).then(setRes).catch((e: Error) => setRes({ valid: false, error: e.message })).finally(() => setBusy(false));
+      post<FormulaResp>("/api/lab/formula", { expr, level, real: money }).then(setRes).catch((e: Error) => setRes({ valid: false, error: e.message })).finally(() => setBusy(false));
     }, 350);
     return () => clearTimeout(t);
-  }, [expr, level]);
+  }, [expr, level, money]);
   const usable = indicators.filter((i) => i.status === "disponivel" && i.frequency === "A" && i.levels.includes(level) && (!filter || (i.name + i.id).toLowerCase().includes(filter.toLowerCase())));
   const save = () => {
     if (!res?.valid || !name.trim()) return;
@@ -486,11 +488,12 @@ function Search() {
   const [conds, setConds] = useState<Cond[]>(START);
   const [period, setPeriod] = useState("2021");
   const [body, setBody] = useState<unknown>(null);
+  const [money] = useMoney();
   const { data, error, loading } = useApi<SearchResp>(body ? "/api/lab/search" : null, body ?? undefined);
   const upd = (i: number, p: Partial<Cond>) => setConds(conds.map((c, j) => (j === i ? { ...c, ...p } : c)));
   const run = () => setBody({
     level, uf: uf || null, limit: 500,
-    conditions: conds.map((c) => ({ var: c.var, op: c.op, period: period || null, real: c.real, ref: c.mode === "valor" || c.op === "entre" ? null : c.mode,
+    conditions: conds.map((c) => ({ var: c.var, op: c.op, period: period || null, real: money, ref: c.mode === "valor" || c.op === "entre" ? null : c.mode,
       value: c.mode === "valor" || c.op === "entre" ? Number(c.value.replace(",", ".")) : null, value2: c.op === "entre" ? Number(c.value2.replace(",", ".")) : null })),
   });
   const invalid = conds.some((c) => (c.mode === "valor" || c.op === "entre") && (c.value.trim() === "" || Number.isNaN(Number(c.value.replace(",", ".")))));

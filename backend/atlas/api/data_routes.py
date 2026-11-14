@@ -10,10 +10,10 @@ from datetime import datetime
 import polars as pl
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..data import LEVEL_NAMES
-from ..models import Indicator, TerritoryChange
+from ..models import Indicator, Observation, TerritoryChange
 from ..stats import core
 from .deps import Ctx, ctx, named, split_codes
 
@@ -24,7 +24,7 @@ def _clean(v):
     return None if v is None or (isinstance(v, float) and (math.isnan(v) or math.isinf(v))) else v
 
 
-def frame_at(c: Ctx, spec: str, level: str, period: str, real: bool = False) -> tuple[pl.DataFrame, dict]:
+def frame_at(c: Ctx, spec: str, level: str, period: str, real: str = "") -> tuple[pl.DataFrame, dict]:
     v = c.resolve(spec, level, [period], real=real)
     return v.result.df.filter(pl.col("period") == period).select("code", "value"), v.meta
 
@@ -36,7 +36,7 @@ def periods(var: str, level: str = "MUN", c: Ctx = Depends(ctx)):
 
 
 @router.get("/map")
-def map_data(var: str, level: str = "MUN", period: str | None = None, real: bool = False,
+def map_data(var: str, level: str = "MUN", period: str | None = None, real: str = "",
              method: str = "quantis", k: int = Query(5, ge=3, le=9), uf: str | None = None, c: Ctx = Depends(ctx)):
     level = c.level(level)
     period = c.period_or_latest(var, level, period)
@@ -46,6 +46,7 @@ def map_data(var: str, level: str = "MUN", period: str | None = None, real: bool
     return dict(
         meta=meta, level=level, level_name=LEVEL_NAMES[level], period=period, periods=c.periods(var, level),
         stats=core.describe(vals), breaks=core.classify(vals, method, k), method=method,
+        n_inconsistent=len(c.da.flagged(var, level, period)),
         n_territories=full.height, n_missing=full.height - len(vals),
         values=[dict(code=r["code"], value=_clean(r["value"])) for r in full.select("code", "value").to_dicts()],
     )
@@ -79,7 +80,7 @@ def _series_for(c: Ctx, var: str, codes: list[str], real: bool):
 
 
 @router.get("/series")
-def series(var: str, codes: str = "BR", real: bool = False, c: Ctx = Depends(ctx)):
+def series(var: str, codes: str = "BR", real: str = "", c: Ctx = Depends(ctx)):
     cs = split_codes(codes)
     out, meta = _series_for(c, var, cs, real)
     changes = [dict(code=ch.code, year=ch.year, kind=ch.kind, note=ch.note)
@@ -93,7 +94,7 @@ def _profile_indicators(c: Ctx, level: str) -> list[Indicator]:
 
 
 @router.get("/profile/{code}")
-def profile(code: str, c: Ctx = Depends(ctx)):
+def profile(code: str, real: str = "", c: Ctx = Depends(ctx)):
     """Perfil territorial: último valor de cada indicador, com referência de período, UF, Brasil e posição."""
     t = c.territory(code)
     rows = []
@@ -102,31 +103,36 @@ def profile(code: str, c: Ctx = Depends(ctx)):
         if not ps:
             continue
         # último período em que ESTE território tem valor (pode diferir do último período do indicador)
-        own = c.resolve(ind.id, t.level, None, [code]).result.df.filter(pl.col("value").is_not_null()).sort("period")
+        var = c.resolve(ind.id, t.level, None, [code], real)
+        own = var.result.df.filter(pl.col("value").is_not_null()).sort("period")
         info = c.da.info(ind.id)
         base = dict(id=ind.id, name=ind.name, short_name=ind.short_name or ind.name, dimension=ind.dimension,
-                    unit=info["unit_label"], decimals=ind.decimals, nature=ind.nature, percent=info["percent"])
+                    unit=var.meta["unit"], moeda=var.meta.get("moeda"), real=var.meta["real"], decimals=ind.decimals, nature=ind.nature, percent=info["percent"])
         if own.height == 0:
+            bad = c.s.scalar(select(func.max(Observation.period)).where(
+                Observation.indicator_id.in_(c.da._leaf_ids(ind.id)), Observation.territory_code == code,
+                Observation.is_current.is_(True), Observation.flag == "inc"))
             rows.append({**base, "period": None, "value": None, "missing_reason":
-                         "Sem observação para este território nesta base."})
+                         f"A declaração de {bad} foi deixada de fora por inconsistência contábil (ver metodologia)." if bad
+                         else "Sem observação para este território nesta base."})
             continue
         period = own["period"][-1]
         value = own["value"][-1]
-        df, _ = frame_at(c, ind.id, t.level, period)
+        df, _ = frame_at(c, ind.id, t.level, period, real)
         vals = df.filter(pl.col("value").is_not_null())
         rank = int(vals.filter(pl.col("value") > value).height) + 1 if t.level != "BR" else None
         row = {**base, "period": period, "value": _clean(value), "rank": rank, "rank_of": vals.height if rank else None,
                "first_period": own["period"][0], "stale": period != ps[-1]}
         for key, lvl, pc in (("uf_value", "UF", t.uf_code if t.level in ("MUN", "RGI", "RGINT") else None), ("br_value", "BR", "BR" if t.level != "BR" else None)):
             if pc and lvl in (ind.levels or []):
-                d = c.resolve(ind.id, lvl, [period], [pc]).result.df
+                d = c.resolve(ind.id, lvl, [period], [pc], real).result.df
                 row[key] = _clean(d["value"][0]) if d.height else None
         rows.append(row)
     return dict(code=code, level=t.level, indicators=rows)
 
 
 @router.get("/similar/{code}")
-def similar(code: str, n: int = Query(6, ge=1, le=20), c: Ctx = Depends(ctx)):
+def similar(code: str, n: int = Query(6, ge=1, le=20), real: str = "", c: Ctx = Depends(ctx)):
     """Territórios semelhantes por porte populacional e PIB per capita (distância em escala logarítmica padronizada)."""
     t = c.territory(code)
     if t.level == "BR":
@@ -150,15 +156,18 @@ def similar(code: str, n: int = Query(6, ge=1, le=20), c: Ctx = Depends(ctx)):
     ufs = c.uf_siglas()
     names = c.terr(t.level)
     top = top.join(names, on="code")
+    # A semelhança é calculada em reais (a conversão não muda a ordem); só o valor exibido segue a moeda escolhida.
+    shown, shown_meta = frame_at(c, "pib_per_capita", t.level, period, real)
+    top = top.join(shown.rename({"value": "pibpc_shown"}), on="code", how="left")
     return dict(
         basis=f"População e PIB per capita de {period} (distância euclidiana em logaritmos padronizados, mesmo nível territorial).",
-        period=period,
-        items=[dict(code=r["code"], name=r["name"], uf=ufs.get(r["uf"]), populacao=r["pop"], pib_per_capita=r["pibpc"],
+        period=period, pib_per_capita_unit=shown_meta["unit"],
+        items=[dict(code=r["code"], name=r["name"], uf=ufs.get(r["uf"]), populacao=r["pop"], pib_per_capita=_clean(r["pibpc_shown"]),
                     distance=round(r["dist"], 3)) for r in top.to_dicts()])
 
 
 @router.get("/compare")
-def compare(vars: str, codes: str, period: str | None = None, real: bool = False, c: Ctx = Depends(ctx)):
+def compare(vars: str, codes: str, period: str | None = None, real: str = "", c: Ctx = Depends(ctx)):
     """Tabela comparativa: vários indicadores × vários territórios, com o período de referência de cada célula."""
     cs = split_codes(codes)
     specs = [v for v in vars.split(";") if v.strip()][:12]
@@ -184,7 +193,7 @@ def compare(vars: str, codes: str, period: str | None = None, real: bool = False
 
 
 @router.get("/historical")
-def historical(var: str, p0: str, p1: str, level: str = "UF", real: bool = False, uf: str | None = None,
+def historical(var: str, p0: str, p1: str, level: str = "UF", real: str = "", uf: str | None = None,
                method: str | None = None, k: int = Query(5, ge=2, le=9), c: Ctx = Depends(ctx)):
     """Comparador histórico: variação entre dois períodos por território, sinalizando mudanças de limites."""
     level = c.level(level)
@@ -223,7 +232,7 @@ def historical(var: str, p0: str, p1: str, level: str = "UF", real: bool = False
 
 # ------------------------------------------------------------------ exportação
 def export_table(c: Ctx, specs: list[str], level: str, periods: list[str] | None, codes: list[str] | None,
-                 real: bool, uf: str | None) -> tuple[list[dict], list[dict]]:
+                 real: str | bool, uf: str | None) -> tuple[list[dict], list[dict]]:
     ufs = c.uf_siglas()
     names = c.terr(level)
     if uf and level in ("MUN", "RGI", "RGINT"):
@@ -238,7 +247,7 @@ def export_table(c: Ctx, specs: list[str], level: str, periods: list[str] | None
             rows.append(dict(indicador_id=iid, indicador=v.meta["name"], codigo_ibge=r["code"], territorio=r["name"],
                              uf=ufs.get(r["uf"]) if r["uf"] else None, nivel=level, periodo=r["period"],
                              valor=_clean(r["value"]), unidade=v.meta["unit"],
-                             precos="constantes (IPCA)" if v.meta["real"] else ("correntes" if "R$" in v.meta["unit"] else None)))
+                             precos="constantes (IPCA)" if v.meta["real"] else {"usd": "convertidos em dólares (câmbio do período)", "ouro": "convertidos em gramas de ouro (cotação do período)"}.get(v.meta.get("moeda")) or ("correntes" if "R$" in v.meta["unit"] else None)))
     return rows, metas
 
 
@@ -260,7 +269,7 @@ def export_metadata(metas: list[dict], level: str) -> list[dict]:
 
 
 @router.get("/export")
-def export(vars: str, level: str = "MUN", periods: str | None = None, codes: str | None = None, real: bool = False,
+def export(vars: str, level: str = "MUN", periods: str | None = None, codes: str | None = None, real: str = "",
            uf: str | None = None, format: str = "csv", c: Ctx = Depends(ctx)):
     level = c.level(level)
     specs = [v for v in vars.split(";") if v.strip()][:10]

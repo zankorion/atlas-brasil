@@ -9,7 +9,7 @@ const LIMIT = 30;
 export type RankItem = { code: string; name: string; uf: string | null; value: number };
 
 type Props = {
-  spec: string; level: string; period: string; real: boolean; uf: string;
+  spec: string; level: string; period: string; real: boolean | "usd" | "ouro"; uf: string;
   /** Unidade e casas decimais para exibir os valores. */
   meta: { unit: string; decimals?: number };
   values: Map<string, number | null>;

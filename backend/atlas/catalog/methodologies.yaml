@@ -16,6 +16,8 @@ units:
   - {id: domicilios, label: "domicílios", dims: {domicilio: 1}}
   - {id: estabelecimentos, label: "estabelecimentos", dims: {estab: 1}}
   - {id: ha_estab, label: "ha por estabelecimento", dims: {ha: 1, estab: -1}}
+  - {id: usd_oz, label: "US$ por onça troy", dims: {USD: 1, onca: -1}}
+  - {id: brl_g, label: "R$ por grama", dims: {BRL: 1, onca: -1}}
   - {id: brl_usd, label: "R$/US$", dims: {BRL: 1, USD: -1}}
   - {id: anos, label: "anos", dims: {ano: 1}}
   - {id: cabecas, label: "cabeças", dims: {cabeca: 1}}
@@ -147,6 +149,31 @@ methodologies:
       O ano-base é o último ano com índice completo e é informado em cada resultado. O IPCA é um índice
       nacional de preços ao consumidor: não capta diferenças regionais de preços nem a variação de preços
       específica de cada setor produtivo.
+  - id: moedas
+    title: Valores em dólares e em ouro
+    body: |
+      Valores monetários nominais em reais podem ser exibidos em dólares ou em gramas de ouro. É uma
+      **conversão pela cotação de cada período**, não uma correção pela inflação: responde "quanto isso valia
+      em dólares (ou em ouro) naquele ano", e não "quanto vale a preços de hoje".
+
+      - **Dólar**: taxa de câmbio de venda do Banco Central (SGS 3698, média mensal; SGS 3696, fim de
+        período mensal).
+      - **Ouro**: preço internacional em US$ por onça troy, média mensal do Banco Mundial (Pink Sheet),
+        convertido para reais por grama pelo câmbio médio do mês (1 onça troy = 31,1034768 g).
+      - **Fluxos anuais** (PIB, receitas, Pix): cotação média do ano, e só para anos com os 12 meses
+        publicados. **Estoques de fim de período** (crédito, depósitos): cotação de dezembro — câmbio de fim
+        de período; para o ouro, a média de dezembro, pois a fonte não publica fim de período. **Séries
+        mensais**: cotação do mês.
+      - Período sem cotação publicada fica **ausente**; o Atlas não usa a cotação de outro período.
+      - Vale para os mesmos indicadores que aceitam deflacionamento (valores nominais em reais, inclusive
+        por habitante). Percentuais, razões e quantidades não mudam.
+      - As três opções (preços constantes, dólares, ouro) são alternativas: não se combinam.
+
+      Cuidados de leitura: em dólares, a série mistura a evolução do indicador com a do câmbio — uma
+      desvalorização do real derruba o valor em dólares sem que nada tenha mudado localmente. Em ouro, mistura
+      também a variação do preço internacional do metal. O ouro aqui é uma unidade de conta alternativa, não
+      uma medida de poder de compra.
+
   - id: agregacao
     title: Agregação territorial pelo Atlas
     body: |
@@ -263,6 +290,14 @@ methodologies:
       - **Mudança do plano de contas.** Os códigos das contas mudaram em 2018 e em 2022. Os grandes grupos
         são localizados pela posição no plano (estável); IPTU, ISS, ITBI e FPM, pelo nome da conta, somando
         apenas contas que não tenham uma conta-mãe também encontrada.
+      - **Declarações inconsistentes ficam de fora.** O Atlas não corrige nem estima valores declarados, mas
+        deixa de fora a declaração inteira de um exercício (todos os valores viram ausentes) quando ela é
+        contabilmente impossível por si só: receita total ou receita corrente nula ou negativa (deduções
+        maiores que a receita bruta), despesa nula com receita declarada, ou receita total fora do intervalo
+        de 0,2 a 5 vezes a despesa total. Exemplo: em 2023 São João de Meriti (RJ) declarou R$ 364 bilhões de
+        receita, mais de três vezes a do município de São Paulo. São cerca de dez declarações por exercício.
+        A regra é conservadora: não compara municípios entre si, então erros menores passam. A lista das
+        declarações deixadas de fora, com o motivo e os valores declarados, fica no histórico de cargas.
       - **Conta ausente não é zero.** Se a declaração não traz a conta (por exemplo, ITBI), o Atlas registra
         ausência, embora em muitos casos signifique que nada foi arrecadado.
       - **Só por município.** Como nem todos entregam a declaração todos os anos, o Atlas não soma os

@@ -28,6 +28,8 @@ type Props = {
   focus?: Box | null;
   /** Polígonos dos selecionados, de qualquer nível territorial, com `properties.i` = posição na seleção (define a cor). */
   outlines?: GeoJSON.Feature[];
+  /** Mapa pequeno de apoio (um por território selecionado): margens menores e sem botões de zoom. */
+  compact?: boolean;
   /** Limite de selecionados atingido: o balão avisa que não dá para adicionar mais. */
   selectionFull?: boolean;
   height?: string;
@@ -53,7 +55,7 @@ export function bboxOf(features: GeoJSON.Feature[]): [number, number, number, nu
   return x1 >= x0 ? [x0, y0, x1, y1] : null;
 }
 
-export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered, onHover, onSelect, sync, focus, outlines, selectionFull, height = "100%", ariaLabel }: Props) {
+export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered, onHover, onSelect, sync, focus, outlines, compact, selectionFull, height = "100%", ariaLabel }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const geoRef = useRef<GeoJSON.FeatureCollection | null>(null);
@@ -94,7 +96,7 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
       bounds: BR_BOUNDS, fitBoundsOptions: { padding: 12 }, attributionControl: false, dragRotate: false,
       pitchWithRotate: false, touchPitch: false, maxZoom: 11, minZoom: 2, renderWorldCopies: false,
     });
-    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    if (!compact) map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.touchZoomRotate.disableRotation();
     mapRef.current = map;
     if (process.env.NODE_ENV !== "production") (window as unknown as { __atlasMap?: MlMap }).__atlasMap = map;  // apoio a testes locais
@@ -152,7 +154,7 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
       map.remove();
       mapRef.current = null;
     };
-  }, [sync]);
+  }, [sync, compact]);
 
   // Carrega a malha do nível territorial.
   useEffect(() => {
@@ -229,11 +231,11 @@ export function ChoroMap({ level, values, colorOf, format, uf, selected, hovered
     const bb = fb ?? base;
     if (bb) {
       // no foco, deixa margem e limita a aproximação para o entorno continuar visível
-      fitRef.current = { bounds: bb, padding: fb ? 56 : 16, maxZoom: fb ? 8.5 : 11 };
+      fitRef.current = { bounds: bb, padding: fb ? (compact ? 28 : 56) : 16, maxZoom: fb ? 8.5 : 11 };
       movedRef.current = false;
       map.fitBounds(bb, { padding: fitRef.current.padding, maxZoom: fitRef.current.maxZoom, duration: 600 });
     }
-  }, [uf, geoLevel, level, focusKey]);
+  }, [uf, geoLevel, level, focusKey, compact]);
 
   useEffect(() => {
     const map = mapRef.current;

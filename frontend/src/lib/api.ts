@@ -6,7 +6,7 @@ export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export type SourceRef = { dataset_id: string; dataset: string; source: string; endpoint: string | null; license: string | null; publication: string | null; updated_at: string | null };
 export type VarMeta = {
   spec: string; id: string | null; name: string; short_name: string; unit: string; custom: boolean; formula: string | null;
-  nature: string; frequency: string; real: boolean; decimals: number; percent: boolean; limitations: string | null;
+  nature: string; frequency: string; real: boolean; moeda?: "usd" | "ouro" | null; decimals: number; percent: boolean; limitations: string | null;
   breaks: { period: string; note: string }[]; methodology_id: string | null; div_zero: number; out_of_range?: number; notes: string[];
   components: { id: string; name: string; dataset_id: string }[]; sources: SourceRef[];
 };
@@ -21,7 +21,7 @@ export type Territory = { code: string; level: string; name: string; sigla: stri
 export type Stats = { n: number; mean?: number; std?: number | null; min?: number; p10?: number; p25?: number; median?: number; p75?: number; p90?: number; max?: number };
 export type MapData = {
   meta: VarMeta; level: string; level_name: string; period: string; periods: string[]; stats: Stats; breaks: number[];
-  method: string; n_territories: number; n_missing: number; values: { code: string; value: number | null }[];
+  method: string; n_territories: number; n_missing: number; n_inconsistent?: number; values: { code: string; value: number | null }[];
 };
 export type Dimension = { id: string; name: string; status: string };
 export type AppMeta = {
@@ -119,3 +119,6 @@ export function saveCustom(list: CustomIndicator[]) {
   localStorage.setItem(CK, JSON.stringify(list));
   window.dispatchEvent(new Event("atlas:custom"));
 }
+
+/** Como exibir valores monetários nominais: false = reais correntes; true = preços constantes (IPCA); dólares; gramas de ouro. */
+export type Money = boolean | "usd" | "ouro";

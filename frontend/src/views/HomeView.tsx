@@ -1,17 +1,19 @@
 "use client";
 import Link from "next/link";
+import { useMoney } from "@/lib/money";
 import { useCallback } from "react";
 import { Chart, type Theme } from "@/components/Chart";
 import { useCatalog } from "@/components/pickers";
 import { Card, Notice, Stat } from "@/components/ui";
-import { useApi, type VarMeta } from "@/lib/api";
+import { useApi, type VarMeta, qs } from "@/lib/api";
 import { lineOption, type Serie } from "@/lib/charts";
 import { fmtNum } from "@/lib/format";
 
 type Resp = { meta: VarMeta; series: Serie[] };
 
 function Mini({ spec, codes = "BR", title, note }: { spec: string; codes?: string; title: string; note: string }) {
-  const { data, error } = useApi<Resp>(`/api/series?var=${encodeURIComponent(spec)}&codes=${codes}`);
+  const [money] = useMoney();
+  const { data, error } = useApi<Resp>(`/api/series${qs({ var: spec, codes, real: money })}`);
   const build = useCallback((t: Theme) => {
     if (!data) return {};
     const o = lineOption(t, data.series, data.meta, "nivel");

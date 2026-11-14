@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
+import { useMoney } from "@/lib/money";
 import { useCallback, useState } from "react";
 import { Chart, type Theme } from "@/components/Chart";
 import { IndicatorSelect, useCatalog } from "@/components/pickers";
-import { Card, Check, Loading, NatureTag, Notice, Provenance } from "@/components/ui";
+import { Card, Check, MoneySelect, Loading, NatureTag, Notice, Provenance } from "@/components/ui";
 import { API, qs, useApi, type VarMeta } from "@/lib/api";
 import { lineOption, type Serie, type Transform } from "@/lib/charts";
 import { fmtNum, fmtValue, LEVEL_SINGULAR, periodLabel } from "@/lib/format";
@@ -19,11 +20,11 @@ type Row = {
   period: string | null; value: number | null; rank?: number | null; rank_of?: number | null; uf_value?: number | null;
   br_value?: number | null; first_period?: string; stale?: boolean; missing_reason?: string;
 };
-type Similar = { basis: string | null; period?: string; items: { code: string; name: string; uf: string; populacao: number; pib_per_capita: number }[] };
+type Similar = { basis: string | null; period?: string; pib_per_capita_unit?: string; items: { code: string; name: string; uf: string; populacao: number; pib_per_capita: number }[] };
 
 function Evolution({ t }: { t: Terr }) {
   const [spec, setSpec] = useState(t.level === "BR" ? "pib_nominal" : "pib_per_capita");
-  const [real, setReal] = useState(true);
+  const [real, setReal] = useMoney();
   const [idx, setIdx] = useState(false);
   const codes = [t.code, ...(t.level === "MUN" && t.uf_code ? [t.uf_code] : []), ...(t.level !== "BR" ? ["BR"] : [])].join(",");
   const { data, error } = useApi<{ meta: VarMeta; series: Serie[]; territory_changes: { year: number; note: string }[] }>(`/api/series${qs({ var: spec, codes, real })}`);
@@ -34,7 +35,7 @@ function Evolution({ t }: { t: Terr }) {
     <Card title="Evolução histórica — comparação com o estado e o Brasil">
       <div className="mb-3 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
         <IndicatorSelect value={spec} onChange={setSpec} level={t.level} frequency="A" />
-        <Check checked={real} onChange={setReal} label="Valores reais (IPCA)" />
+        <MoneySelect value={real} onChange={setReal} />
         <Check checked={idx} onChange={setIdx} label="Base 100 (ritmo de crescimento)" />
       </div>
       {error ? <Notice kind="error">{error}</Notice> : <Chart build={build} height={340} renderer="svg" exportName={`atlas_${t.code}_${spec.replace(/\W/g, "")}`} ariaLabel="Evolução histórica" />}
@@ -47,8 +48,9 @@ function Evolution({ t }: { t: Terr }) {
 export function ProfileBody({ code }: { code: string }) {
   const { dimensions } = useCatalog();
   const terr = useApi<Terr>(`/api/territories/${code}`);
-  const prof = useApi<{ indicators: Row[] }>(`/api/profile/${code}`);
-  const sim = useApi<Similar>(`/api/similar/${code}`);
+  const [money] = useMoney();
+  const prof = useApi<{ indicators: Row[] }>(`/api/profile/${code}${qs({ real: money })}`);
+  const sim = useApi<Similar>(`/api/similar/${code}${qs({ real: money })}`);
   if (terr.error) return <Notice kind="error">{terr.error}</Notice>;
   const t = terr.data;
   if (!t || t.code !== code) return <Loading label="Carregando perfil…" />;
@@ -159,7 +161,7 @@ export function ProfileBody({ code }: { code: string }) {
                     {sim.data.items.map((s) => (
                       <li key={s.code} className="flex items-baseline justify-between gap-2 border-b border-line py-1.5">
                         <Link href={`/territorios/${s.code}`} className="hover:text-accent hover:underline">{s.name}{isMun ? ` (${s.uf})` : ""}</Link>
-                        <span className="num shrink-0 text-xs text-muted">{fmtNum(s.populacao, 0)} hab. · R$ {fmtNum(s.pib_per_capita, 0)}</span>
+                        <span className="num shrink-0 text-xs text-muted">{fmtNum(s.populacao, 0)} hab. · {fmtValue(s.pib_per_capita, { unit: (sim.data?.pib_per_capita_unit ?? "R$").replace(" por habitante", ""), decimals: 0 })}</span>
                       </li>
                     ))}
                   </ul>

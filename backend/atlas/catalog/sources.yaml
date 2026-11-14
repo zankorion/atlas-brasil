@@ -9,6 +9,10 @@ sources:
     name: Banco Central do Brasil (BCB)
     url: https://www.bcb.gov.br
     license: Open Database License (ODbL), conforme o Portal de Dados Abertos do BCB.
+  - id: banco_mundial
+    name: Banco Mundial (World Bank)
+    url: https://www.worldbank.org/en/research/commodity-markets
+    license: Creative Commons Attribution 4.0 (CC BY 4.0), conforme os termos de uso de dados do Banco Mundial.
   - id: rfb
     name: Secretaria Especial da Receita Federal do Brasil
     url: https://www.gov.br/receitafederal
@@ -197,6 +201,16 @@ datasets:
     notes: >-
       O Atlas lê apenas dezembro de cada ano, por requisições parciais, e guarda em cache somente o agregado
       por UF e tipo de instituição (bancário, cooperativas, não bancário). Não há abertura municipal.
+  - id: bm_commodities
+    source: banco_mundial
+    name: Preços de commodities (Pink Sheet) — série mensal
+    endpoint: https://www.worldbank.org/en/research/commodity-markets
+    format: XLSX
+    access: arquivo
+    status: disponivel
+    notes: >
+      Arquivo CMO-Historical-Data-Monthly.xlsx. O Atlas usa apenas a coluna do ouro (US$ por onça troy), para
+      a opção de exibir valores em gramas de ouro.
   - id: bcb_pix
     source: bcb
     name: Estatísticas do Pix por município

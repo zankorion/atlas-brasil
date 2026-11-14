@@ -691,6 +691,49 @@ indicators:
     dataset: bcb_sgs
     methodology: sgs
     origem: {tipo: sgs, codigo: 3698}
+  - id: cambio_fim
+    name: Taxa de câmbio R$/US$ — venda, fim de período mensal
+    short_name: Câmbio (fim do mês)
+    dimension: financeiro
+    unit: brl_usd
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    decimals: 4
+    dataset: bcb_sgs
+    methodology: moedas
+    description: Cotação de venda do dólar no último dia útil do mês. Usada para converter estoques de dezembro em dólares.
+    origem: {tipo: sgs, codigo: 3696}
+  - id: ouro_usd
+    name: Preço do ouro — US$ por onça troy, média mensal
+    short_name: Ouro (US$/onça)
+    dimension: financeiro
+    unit: usd_oz
+    nature: observado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    decimals: 2
+    dataset: bm_commodities
+    methodology: moedas
+    description: Preço internacional do ouro (mercado de Londres), média mensal publicada pelo Banco Mundial.
+    limitations: Preço internacional em dólares; não é a cotação do ouro no mercado brasileiro.
+  - id: ouro_brl_g
+    name: Preço do ouro — R$ por grama, média mensal
+    short_name: Ouro (R$/g)
+    dimension: financeiro
+    unit: brl_g
+    nature: derivado
+    value_kind: taxa
+    frequency: M
+    levels: [BR]
+    decimals: 2
+    formula: "ouro_usd * cambio / 31.1034768"
+    dataset: atlas_derivados
+    methodology: moedas
+    description: Preço internacional do ouro convertido pela taxa de câmbio média do mês; 1 onça troy = 31,1034768 g.
+    limitations: Cotação de referência calculada pelo Atlas, sem custos, impostos ou prêmio do mercado local.
 
   # ---------------- Patrimônio e riqueza ----------------
   - id: domicilios_total

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useMoney } from "@/lib/money";
 
 const ITEMS = [
   { href: "/", label: "Início" },
@@ -39,6 +40,25 @@ function ThemeToggle() {
   );
 }
 
+/** Moeda em que o site inteiro exibe valores monetários. */
+function MoneyToggle() {
+  const [money, setMoney] = useMoney();
+  const cur = money === true ? "ipca" : money === false ? "" : money;
+  return (
+    <select
+      value={cur} aria-label="Valores monetários em todo o site"
+      title="Vale para todos os valores monetários do site. Dólares e ouro usam a cotação de cada período e não corrigem a inflação."
+      onChange={(e) => setMoney(e.target.value === "ipca" ? true : e.target.value === "" ? false : (e.target.value as "usd" | "ouro"))}
+      className={`rounded border px-2 py-1.5 text-sm ${cur ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-muted"}`}
+    >
+      <option value="">R$ nominais</option>
+      <option value="ipca">R$ reais (IPCA)</option>
+      <option value="usd">US$ dólares</option>
+      <option value="ouro">Ouro (gramas)</option>
+    </select>
+  );
+}
+
 /** Em rotas dinâmicas o caminho só é conhecido na requisição: o layout envolve <Nav> em Suspense e usa <NavBar path=""> como fallback. */
 export function Nav() {
   return <NavBar path={usePathname()} />;
@@ -68,6 +88,7 @@ export function NavBar({ path }: { path: string }) {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
+          <MoneyToggle />
           <ThemeToggle />
           <button
             type="button"

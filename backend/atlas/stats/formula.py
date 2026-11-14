@@ -49,7 +49,7 @@ class UnitT:
 
     def label(self) -> str:
         names = {"BRL": "R$", "pessoa": "habitante", "km2": "km²", "ha": "ha", "agencia": "agências",
-                 "domicilio": "domicílios", "estab": "estabelecimentos", "USD": "US$"}
+                 "domicilio": "domicílios", "estab": "estabelecimentos", "USD": "US$", "g_ouro": "g de ouro"}
         if self.dimensionless:
             return "%" if self.percent else "razão (adimensional)"
         num = [names.get(k, k) + (f"^{v}" if v > 1 else "") for k, v in self.dims if v > 0]
@@ -63,6 +63,7 @@ class Loader(Protocol):
     def info(self, indicator_id: str) -> dict | None: ...
     def load(self, indicator_id: str, level: str, periods: list[str] | None, codes: list[str] | None) -> pl.DataFrame: ...
     def deflator(self, freq: str, stock_flow: str) -> tuple[dict[str, float], str]: ...
+    def converter(self, kind: str, freq: str, stock_flow: str) -> tuple[dict[str, float], str]: ...
 
 
 @dataclass
@@ -95,7 +96,7 @@ class Result:
     stock_flow: str = "na"
 
 
-FUNCS = {"pct", "part", "lag", "var", "ultimo", "real", "log"}
+FUNCS = {"pct", "part", "lag", "var", "ultimo", "real", "usd", "ouro", "log"}
 MAX_DEPTH = 6
 
 
@@ -306,6 +307,10 @@ class Evaluator:
                 raise FormulaError("real(x) exige um argumento.")
             f = self.eval(args[0], depth)
             return self.deflate(f)
+        if fn in ("usd", "ouro"):
+            if len(args) != 1:
+                raise FormulaError(f"{fn}(x) exige um argumento.")
+            return self.convert(self.eval(args[0], depth), fn)
         if fn == "log":
             if len(args) != 1:
                 raise FormulaError("log(x) exige um argumento.")
@@ -330,6 +335,25 @@ class Evaluator:
         df = f.df.join(d, on="period", how="left").with_columns((pl.col("value") * pl.col("_k")).alias("value")).drop("_k")
         self.notes.append(f"Valores deflacionados pelo IPCA, a preços de {base}.")
         return Frame(df, f.unit, freq=f.freq, stock_flow=f.stock_flow, nominal=False)
+
+    def convert(self, f: Frame, kind: str) -> Frame:
+        """Converte valores nominais em reais para dólares ou gramas de ouro, pela cotação do próprio período."""
+        if f.is_scalar or f.broadcast:
+            raise FormulaError(f"{kind}() deve ser aplicado a um indicador monetário com período.")
+        if dict(f.unit.dims).get("BRL", 0) != 1:
+            raise FormulaError(f"{kind}() só se aplica a valores em reais; a expressão tem unidade {f.unit.label()}.")
+        if not f.nominal:
+            raise FormulaError(f"{kind}() só se aplica a valores nominais (a expressão já foi deflacionada ou convertida).")
+        factors, note = self.loader.converter(kind, f.freq or "A", f.stock_flow)
+        d = pl.DataFrame({"period": list(factors.keys()), "_k": list(factors.values())},
+                         schema={"period": pl.String, "_k": pl.Float64})
+        # período sem cotação (ano incompleto, série ainda não publicada): valor ausente, nunca a cotação de outro período
+        df = f.df.join(d, on="period", how="left").with_columns((pl.col("value") * pl.col("_k")).alias("value")).drop("_k")
+        dims = dict(f.unit.dims)
+        dims.pop("BRL")
+        dims["USD" if kind == "usd" else "g_ouro"] = 1
+        self.notes.append(note)
+        return Frame(df, UnitT.of(dims), freq=f.freq, stock_flow=f.stock_flow, nominal=False)
 
     # -- despacho
     def eval(self, node: ast.AST, depth: int = 0) -> Frame:
