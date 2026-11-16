@@ -14,6 +14,7 @@ services:
       ATLAS_DATABASE_URL: sqlite:////data/atlas.db
       ATLAS_DATA_DIR: /data
       ATLAS_CACHE_MB: "250"
+      ATLAS_SQLITE_CACHE_MB: "24"  # por conexão; com 200 a API passava de 1 GB só em páginas do banco
       ATLAS_CORS_ORIGINS: ${ATLAS_PUBLIC_URL:-https://atlas.strenos.com.br}
     volumes:
       - /opt/atlas-data:/data

@@ -13,6 +13,7 @@ engine = create_engine(
     future=True,
     # timeout: espera até 60 s por um bloqueio de escrita (cargas simultâneas) antes de falhar
     connect_args={"check_same_thread": False, "timeout": 60} if _is_sqlite else {},
+    pool_size=settings.db_pool_size,
 )
 
 if _is_sqlite:
@@ -23,7 +24,7 @@ if _is_sqlite:
         cur.execute("PRAGMA journal_mode=WAL")
         cur.execute("PRAGMA synchronous=NORMAL")
         cur.execute("PRAGMA foreign_keys=ON")
-        cur.execute("PRAGMA cache_size=-200000")
+        cur.execute(f"PRAGMA cache_size=-{settings.sqlite_cache_mb * 1000}")
         cur.close()
 
 

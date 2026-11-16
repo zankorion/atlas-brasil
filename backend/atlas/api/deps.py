@@ -1,6 +1,7 @@
 """Utilidades compartilhadas pelas rotas: acesso a dados com cache e tratamento de erros."""
 from __future__ import annotations
 
+import threading
 from collections import OrderedDict
 
 import polars as pl
@@ -20,6 +21,9 @@ _CACHE_MAX = 400
 # Tamanho (bytes) dos quadros guardados: o cache também é limitado em memória, não só em número de itens —
 # séries municipais completas ocupam vários MB cada e, sem esse teto, a API cresce até o limite do contêiner.
 _sizes: dict = {}
+# As rotas rodam em várias threads: toda leitura ou escrita do cache passa por esta trava (os cálculos ficam fora dela).
+_lock = threading.RLock()
+_version = 0  # versão dos dados (última carga) a que o cache se refere
 
 
 def _evict() -> None:
@@ -39,6 +43,12 @@ class Ctx:
         self.s = session
         self.da = DataAccess(session)
         self.version = session.scalar(select(func.max(IngestionRun.id))) or 0
+        global _version
+        with _lock:
+            if self.version != _version:  # nova carga: nada do que está guardado será consultado de novo
+                _cache.clear()
+                _sizes.clear()
+                _version = self.version
 
     def level(self, level: str) -> str:
         level = level.upper()
@@ -53,30 +63,42 @@ class Ctx:
         except FormulaError as e:
             raise HTTPException(422, str(e)) from None
         key = (self.version, spec, level, tuple(periods) if periods is not None else None, real) if codes is None else None
-        if key and key in _cache:
-            _cache.move_to_end(key)
-            return _cache[key]
+        if key:
+            with _lock:
+                if key in _cache:
+                    _cache.move_to_end(key)
+                    return _cache[key]
         try:
             v = self.da.resolve(spec, level, periods, codes, real)
         except FormulaError as e:
             raise HTTPException(422, str(e)) from None
         if key:
-            _cache[key] = v
-            _sizes[key] = int(v.result.df.estimated_size())
-            _evict()
+            size = int(v.result.df.estimated_size())
+            with _lock:
+                _cache[key] = v
+                _sizes[key] = size
+                _evict()
         return v
+
+    @staticmethod
+    def _memo(key, compute):
+        """Valor pequeno guardado sem limite de tamanho (períodos, territórios); calculado fora da trava."""
+        with _lock:
+            if key in _cache:
+                return _cache[key]
+        value = compute()
+        with _lock:
+            return _cache.setdefault(key, value)
 
     def periods(self, spec: str, level: str) -> list[str]:
         info = None if spec.startswith("=") else self.da.info(spec)
         if info and info["status"] == "planejado":
             raise HTTPException(422, f"“{info['name']}” está catalogado, mas ainda não possui dados integrados.")
         key = (self.version, "periods", spec, level)
-        if key not in _cache:
-            try:
-                _cache[key] = self.da.periods_of(spec, level)
-            except FormulaError as e:
-                raise HTTPException(422, str(e)) from None
-        return _cache[key]
+        try:
+            return self._memo(key, lambda: self.da.periods_of(spec, level))
+        except FormulaError as e:
+            raise HTTPException(422, str(e)) from None
 
     def latest(self, spec: str, level: str) -> str | None:
         p = self.periods(spec, level)
@@ -92,9 +114,7 @@ class Ctx:
 
     def terr(self, level: str) -> pl.DataFrame:
         key = (self.version, "terr", level)
-        if key not in _cache:
-            _cache[key] = self.da.territories(level)
-        return _cache[key]
+        return self._memo(key, lambda: self.da.territories(level))
 
     def territory(self, code: str) -> Territory:
         t = self.s.get(Territory, code)
@@ -104,9 +124,7 @@ class Ctx:
 
     def uf_siglas(self) -> dict[str, str]:
         key = (self.version, "ufs")
-        if key not in _cache:
-            _cache[key] = {t.code: t.sigla for t in self.s.scalars(select(Territory).where(Territory.level == "UF"))}
-        return _cache[key]
+        return self._memo(key, lambda: {t.code: t.sigla for t in self.s.scalars(select(Territory).where(Territory.level == "UF"))})
 
 
 def ctx(session: Session = Depends(get_session)) -> Ctx:

@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     # Teto de memória (MB) para os quadros de dados mantidos em cache pela API.
     cache_mb: int = 400
+    # Cache de páginas do SQLite (MB) POR CONEXÃO. A API mantém várias conexões abertas (uma por requisição
+    # simultânea), então o total é este valor vezes o tamanho do pool: alto nas cargas, baixo no servidor.
+    sqlite_cache_mb: int = 200
+    # Conexões que a API mantém abertas com o banco (as excedentes são fechadas ao fim da requisição).
+    db_pool_size: int = 5
     http_timeout: float = 300.0
     http_retries: int = 4
     user_agent: str = "atlas-brasil/0.1 (plataforma aberta de dados publicos)"

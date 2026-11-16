@@ -34,8 +34,8 @@ def _warm_up() -> None:
         c = Ctx(session)
         for code in ("3550308", "35", "BR"):
             if session.get(catalog.Territory, code):
-                data_routes.profile(code, c)
-        catalog.indicators(c)
+                data_routes.profile(code, c=c)
+        catalog.indicators(c=c)
         log.info("cache aquecido", extra=logctx(versao=c.version))
     except Exception as e:  # pragma: no cover - melhor esforço
         log.warning("aquecimento do cache falhou", extra=logctx(erro=str(e)[:200]))
