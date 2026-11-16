@@ -27,6 +27,12 @@ units:
   - {id: brl_ha, label: "R$ por hectare", dims: {BRL: 1, ha: -1}}
   - {id: transacoes, label: "transações", dims: {transacao: 1}}
   - {id: brl_transacao, label: "R$ por transação", dims: {BRL: 1, transacao: -1}}
+  - {id: matriculas, label: "matrículas", dims: {matricula: 1}}
+  - {id: escolas, label: "escolas", dims: {escola: 1}}
+  - {id: turmas, label: "turmas", dims: {turma: 1}}
+  - {id: mat_turma, label: "matrículas por turma", dims: {matricula: 1, turma: -1}}
+  - {id: mat_escola, label: "matrículas por escola", dims: {matricula: 1, escola: -1}}
+  - {id: brl_matricula, label: "R$ por matrícula", dims: {BRL: 1, matricula: -1}}
   - {id: brl_trab, label: "R$ por assalariado", dims: {BRL: 1, pessoa: -1}}
 
 methodologies:
@@ -352,6 +358,11 @@ methodologies:
       Resultados do universo do Censo 2022 (SIDRA 9543, 9515, 6803, 6805, 6892, 9923, 9605), por município.
 
       - Taxa de alfabetização: pessoas de 15 anos ou mais que sabem ler e escrever;
+      - nível de instrução e anos de estudo (tabelas 10061 e 10062): pessoas de 25 anos ou mais, idade em que a
+        maioria já concluiu a escolarização; os percentuais são calculados pelo Atlas sobre o total da tabela;
+      - frequência escolar (tabela 10056): taxa bruta, isto é, pessoas do grupo de idade que frequentam escola
+        ou creche em qualquer etapa, sobre o total do grupo. Estes três temas vêm da amostra do Censo: em
+        municípios pequenos a margem de erro é maior;
       - índice de envelhecimento, idade mediana e razão de sexo: conforme publicados pelo IBGE (tabela 9515);
       - saneamento: domicílios particulares permanentes ocupados ligados à rede geral de água, com esgotamento
         por rede geral, rede pluvial ou fossa ligada à rede, e com lixo coletado. As proporções são os
@@ -374,4 +385,38 @@ methodologies:
         deflacionamento adicional, e a série inteira é revista a cada divulgação;
       - o Gini mede a desigualdade de rendimento entre pessoas, diferente das medidas de desigualdade entre
         territórios calculadas no Laboratório.
+  - id: educacao_inep
+    title: Educação básica (INEP)
+    body: |
+      Três conjuntos do INEP, todos lidos dos arquivos originais em download.inep.gov.br, sem estimativa.
 
+      **Censo Escolar (2007 em diante).** Microdados por escola. O Atlas soma as escolas com situação "em
+      atividade" de cada município: escolas, turmas e matrículas por etapa e por rede.
+
+      - Conta **matrículas**, não pessoas: um aluno pode ter mais de uma (por exemplo, ensino médio e curso técnico).
+      - O município é o da **escola**, não o de residência do aluno; cidades-polo recebem alunos de vizinhas.
+      - Onde há escolas, uma etapa sem matrículas é zero de verdade, porque o Censo Escolar é um levantamento
+        completo. Variável não coletada em um ano fica ausente.
+      - Os totais do Brasil conferem com os divulgados pelo INEP (47.304.632 matrículas em 2023).
+      - De 1995 a 2006 o questionário e as variáveis eram outros; esses anos ainda não estão integrados.
+      - Número de professores não é publicado aqui: o mesmo docente é contado em cada escola em que trabalha, e
+        a soma por município contaria a mesma pessoa mais de uma vez.
+
+      **IDEB (bienal, 2005 em diante).** Resultado da **rede pública** de cada município, como divulgado. O
+      índice combina o desempenho no SAEB com a taxa de aprovação, em escala de 0 a 10.
+
+      - Sem valor onde o INEP não divulgou (participação insuficiente na prova, poucas matrículas ou pedido de
+        não divulgação): fica ausente, nunca zero.
+      - Ensino médio por município só a partir de 2017.
+      - 2021 foi aplicado durante a pandemia, com aprovação automática em muitas redes: compare com cautela.
+
+      **Taxas de rendimento (2013 em diante) e distorção idade-série (2011 em diante).** Linha "Total" de cada
+      município (todas as redes e localizações). Aprovação, reprovação e abandono somam 100%; a carga confere
+      essa soma antes de gravar. Distorção idade-série é o percentual de alunos com dois anos ou mais de atraso.
+
+      - Em 2020 e 2021 muitas redes adotaram aprovação automática: as taxas desses anos não são comparáveis.
+      - Estes indicadores estão disponíveis apenas por município; os totais de estados e do Brasil são
+        publicados pelo INEP em arquivos separados, ainda não integrados.
+
+      **Despesa por aluno da rede municipal.** Cruza a despesa na função Educação declarada pela prefeitura
+      (SICONFI) com as matrículas da rede municipal. Não é o valor aluno/ano do Fundeb.

@@ -19,7 +19,7 @@ log = get_logger("cli")
 BACKEND = Path(__file__).resolve().parents[1]
 
 PIPELINES = ["territorios", "emancipacoes", "sgs", "populacao", "sidra", "domicilios", "censo_agro", "estban",
-             "cooperativas", "scr", "pix", "siconfi", "ouro", "agregacao"]
+             "cooperativas", "scr", "pix", "siconfi", "ouro", "ideb", "censo_escolar", "rendimento", "distorcao", "agregacao"]
 
 
 def migrate() -> None:
@@ -40,7 +40,7 @@ def seed() -> None:
 
 
 def ingest(name: str, args) -> None:
-    from .pipelines import aggregate, bcb, cooperativas, emancipacoes, pix, siconfi, sidra, territories
+    from .pipelines import aggregate, bcb, cooperativas, emancipacoes, inep, pix, siconfi, sidra, territories
 
     refresh = args.refresh
     if name == "territorios":
@@ -55,6 +55,14 @@ def ingest(name: str, args) -> None:
         pix.run(start=args.inicio or pix.FIRST_FULL_YEAR, end=args.fim, refresh=refresh)
     elif name == "siconfi":
         siconfi.run(start=args.inicio or 2014, end=args.fim, refresh=refresh)
+    elif name == "ideb":
+        inep.run_ideb(refresh=refresh)
+    elif name == "censo_escolar":
+        inep.run_censo_escolar(start=args.inicio or 2007, end=args.fim, refresh=refresh)
+    elif name == "rendimento":
+        inep.run_rendimento(start=args.inicio, end=args.fim, refresh=refresh)
+    elif name == "distorcao":
+        inep.run_distorcao(start=args.inicio, end=args.fim, refresh=refresh)
     elif name == "ouro":
         bcb.run_ouro(refresh=True)
     elif name == "sgs":

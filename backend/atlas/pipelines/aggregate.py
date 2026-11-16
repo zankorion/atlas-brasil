@@ -20,8 +20,8 @@ def run() -> None:
         installed = {ch.code: ch.year for ch in s.scalars(select(TerritoryChange).where(TerritoryChange.kind == "instalacao"))}
         inds = s.scalars(select(Indicator).where(Indicator.additive.is_(True), Indicator.status == "disponivel")).all()
         for ind in inds:
-            if "RGI" not in (ind.levels or []) or ind.dataset_id in ("bcb_estban", "bcb_pix"):
-                continue  # ESTBAN e Pix já são agregados na própria carga
+            if "RGI" not in (ind.levels or []) or ind.dataset_id in ("bcb_estban", "bcb_pix", "inep_censo_escolar"):
+                continue  # ESTBAN, Pix e Censo Escolar já são agregados na própria carga
             sums: dict = defaultdict(float)
             blocked: set = set()
             q = select(Observation.territory_code, Observation.period, Observation.value).where(

@@ -31,7 +31,14 @@ _client: httpx.Client | None = None
 def client() -> httpx.Client:
     global _client
     if _client is None:
+        # Certificados do sistema operacional: alguns servidores públicos (ex.: INEP) não enviam a cadeia completa,
+        # e o repositório do sistema sabe completá-la. A verificação nunca é desligada.
+        import ssl
+
+        import truststore
+
         _client = httpx.Client(
+            verify=truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT),
             timeout=settings.http_timeout,
             follow_redirects=True,
             headers={"User-Agent": settings.user_agent, "Accept-Encoding": "gzip"},

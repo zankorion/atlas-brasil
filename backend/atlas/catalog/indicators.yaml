@@ -2045,6 +2045,580 @@ indicators:
     dataset: atlas_derivados
     methodology: siconfi
     limitations: "Receita realizada menos despesa empenhada, como % da receita. Negativo = despesa empenhada maior que a receita do exercício."
+  # ---------------- Educação: escolaridade da população (Censo 2022) ----------------
+
+  - id: anos_estudo
+    name: Anos médios de estudo (25 anos ou mais)
+    short_name: Anos de estudo
+    dimension: educacao
+    unit: anos
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Número médio de anos de estudo das pessoas de 25 anos ou mais, conforme publicado pelo IBGE (Censo 2022, resultados da amostra).
+    origem: {tipo: sidra, tabela: "10062", variavel: "13285", classificacao: "58[108866]|2[6794]|86[95251]"}
+
+  - id: instr_total_25
+    name: Pessoas de 25 anos ou mais (base do nível de instrução)
+    short_name: Pessoas de 25 anos ou mais
+    dimension: educacao
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "10061", variavel: "2667", classificacao: "1568[120704]|58[108866]|2[6794]|86[95251]"}
+
+  - id: instr_sem_fund
+    name: Pessoas de 25 anos ou mais sem instrução ou com fundamental incompleto
+    short_name: Sem instrução ou fundamental incompleto
+    dimension: educacao
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "10061", variavel: "2667", classificacao: "1568[9493]|58[108866]|2[6794]|86[95251]"}
+
+  - id: instr_fund
+    name: Pessoas de 25 anos ou mais com fundamental completo ou médio incompleto
+    short_name: Fundamental completo ou médio incompleto
+    dimension: educacao
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "10061", variavel: "2667", classificacao: "1568[9494]|58[108866]|2[6794]|86[95251]"}
+
+  - id: instr_medio
+    name: Pessoas de 25 anos ou mais com médio completo ou superior incompleto
+    short_name: Médio completo ou superior incompleto
+    dimension: educacao
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "10061", variavel: "2667", classificacao: "1568[9495]|58[108866]|2[6794]|86[95251]"}
+
+  - id: instr_superior
+    name: Pessoas de 25 anos ou mais com ensino superior completo
+    short_name: Superior completo
+    dimension: educacao
+    unit: pessoas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    decimals: 0
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    origem: {tipo: sidra, tabela: "10061", variavel: "2667", classificacao: "1568[99713]|58[108866]|2[6794]|86[95251]"}
+
+  - id: pct_sem_fund
+    name: População de 25 anos ou mais sem instrução ou com fundamental incompleto
+    short_name: "% sem fundamental completo"
+    dimension: educacao
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    formula: "part(instr_sem_fund, instr_total_25)"
+    dataset: atlas_derivados
+    methodology: censo_2022
+
+  - id: pct_medio_completo
+    name: População de 25 anos ou mais com ao menos o ensino médio completo
+    short_name: "% com médio completo ou mais"
+    dimension: educacao
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    formula: "part(instr_medio + instr_superior, instr_total_25)"
+    dataset: atlas_derivados
+    methodology: censo_2022
+
+  - id: pct_superior
+    name: População de 25 anos ou mais com ensino superior completo
+    short_name: "% com superior completo"
+    dimension: educacao
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    formula: "part(instr_superior, instr_total_25)"
+    dataset: atlas_derivados
+    methodology: censo_2022
+
+  - id: freq_escolar_0_3
+    name: Frequência à creche ou escola — 0 a 3 anos
+    short_name: Frequência escolar (0 a 3 anos)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Taxa bruta de frequência escolar das crianças de 0 a 3 anos (Censo 2022).
+    origem: {tipo: sidra, tabela: "10056", variavel: "3795", classificacao: "58[99749]|2[6794]|86[95251]"}
+
+  - id: freq_escolar_4_5
+    name: Frequência à escola — 4 e 5 anos
+    short_name: Frequência escolar (4 e 5 anos)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Taxa bruta de frequência escolar das crianças de 4 e 5 anos (Censo 2022).
+    origem: {tipo: sidra, tabela: "10056", variavel: "3795", classificacao: "58[47813]|2[6794]|86[95251]"}
+
+  - id: freq_escolar_6_14
+    name: Frequência à escola — 6 a 14 anos
+    short_name: Frequência escolar (6 a 14 anos)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Taxa bruta de frequência escolar das pessoas de 6 a 14 anos (Censo 2022).
+    origem: {tipo: sidra, tabela: "10056", variavel: "3795", classificacao: "58[31615]|2[6794]|86[95251]"}
+
+  - id: freq_escolar_15_17
+    name: Frequência à escola — 15 a 17 anos
+    short_name: Frequência escolar (15 a 17 anos)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Taxa bruta de frequência escolar das pessoas de 15 a 17 anos (Censo 2022).
+    origem: {tipo: sidra, tabela: "10056", variavel: "3795", classificacao: "58[2792]|2[6794]|86[95251]"}
+
+  - id: freq_escolar_18_24
+    name: Frequência à escola ou faculdade — 18 a 24 anos
+    short_name: Frequência escolar (18 a 24 anos)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, REGIAO, UF, MUN]
+    dataset: ibge_censo_2022
+    methodology: censo_2022
+    description: Taxa bruta de frequência escolar das pessoas de 18 a 24 anos, em qualquer nível de ensino (Censo 2022).
+    origem: {tipo: sidra, tabela: "10056", variavel: "3795", classificacao: "58[100052]|2[6794]|86[95251]"}
+
+  # ---------------- Educação básica: IDEB (INEP) ----------------
+
+  - id: ideb_anos_iniciais
+    name: IDEB — anos iniciais do ensino fundamental (rede pública)
+    short_name: IDEB anos iniciais
+    dimension: educacao
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_ideb
+    methodology: educacao_inep
+    description: Índice de Desenvolvimento da Educação Básica do 1º ao 5º ano, rede pública do município. Escala de 0 a 10.
+    limitations: Bienal (anos ímpares). Sem valor onde o INEP não divulgou o resultado (participação insuficiente no SAEB ou poucas matrículas). O IDEB de 2021 foi afetado pela pandemia.
+
+  - id: ideb_anos_finais
+    name: IDEB — anos finais do ensino fundamental (rede pública)
+    short_name: IDEB anos finais
+    dimension: educacao
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_ideb
+    methodology: educacao_inep
+    description: Índice de Desenvolvimento da Educação Básica do 6º ao 9º ano, rede pública do município. Escala de 0 a 10.
+    limitations: Bienal (anos ímpares). Sem valor onde o INEP não divulgou o resultado (participação insuficiente no SAEB ou poucas matrículas). O IDEB de 2021 foi afetado pela pandemia.
+
+  - id: ideb_ensino_medio
+    name: IDEB — ensino médio (rede pública)
+    short_name: IDEB ensino médio
+    dimension: educacao
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_ideb
+    methodology: educacao_inep
+    description: Índice de Desenvolvimento da Educação Básica do ensino médio, rede pública do município. Escala de 0 a 10.
+    limitations: Por município só a partir de 2017, quando o SAEB do ensino médio passou a ser censitário. Bienal.
+
+  # ---------------- Educação básica: Censo Escolar (INEP) ----------------
+
+  - id: esc_matriculas
+    name: Matrículas na educação básica
+    short_name: Matrículas
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+    description: Matrículas em todas as etapas e redes (creche ao ensino médio, EJA e educação profissional) nas escolas do município.
+    limitations: Conta matrículas, não pessoas — um aluno pode ter mais de uma. O município é o da escola, não o de residência do aluno.
+
+  - id: esc_escolas
+    name: Escolas de educação básica em atividade
+    short_name: Escolas
+    dimension: educacao
+    unit: escolas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+    description: Escolas públicas e privadas com situação "em atividade" no Censo Escolar do ano.
+
+  - id: esc_turmas
+    name: Turmas da educação básica
+    short_name: Turmas
+    dimension: educacao
+    unit: turmas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_creche
+    name: Matrículas em creche
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_pre
+    name: Matrículas na pré-escola
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_fund_ai
+    name: Matrículas nos anos iniciais do ensino fundamental
+    short_name: Matrículas — fundamental, anos iniciais
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_fund_af
+    name: Matrículas nos anos finais do ensino fundamental
+    short_name: Matrículas — fundamental, anos finais
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_medio
+    name: Matrículas no ensino médio
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_eja
+    name: Matrículas na educação de jovens e adultos (EJA)
+    short_name: Matrículas — EJA
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_prof
+    name: Matrículas na educação profissional
+    short_name: Matrículas — educação profissional
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+    limitations: Inclui cursos técnicos integrados ao ensino médio, que também contam como matrícula do ensino médio.
+
+  - id: esc_mat_publica
+    name: Matrículas na rede pública
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+    description: Matrículas da educação básica em escolas federais, estaduais e municipais.
+
+  - id: esc_mat_municipal
+    name: Matrículas na rede municipal
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_mat_privada
+    name: Matrículas na rede privada
+    dimension: educacao
+    unit: matriculas
+    nature: observado
+    value_kind: quantidade
+    stock_flow: estoque
+    additive: true
+    decimals: 0
+    dataset: inep_censo_escolar
+    methodology: educacao_inep
+
+  - id: esc_pct_publica
+    name: Participação da rede pública nas matrículas
+    short_name: "% de matrículas na rede pública"
+    dimension: educacao
+    unit: pct
+    nature: derivado
+    value_kind: razao
+    decimals: 1
+    formula: "part(esc_mat_publica, esc_matriculas)"
+    dataset: atlas_derivados
+    methodology: educacao_inep
+
+  - id: esc_alunos_turma
+    name: Matrículas por turma
+    dimension: educacao
+    unit: mat_turma
+    nature: derivado
+    value_kind: razao
+    decimals: 1
+    formula: "esc_matriculas / esc_turmas"
+    dataset: atlas_derivados
+    methodology: educacao_inep
+    limitations: Média de todas as etapas e redes; creches têm turmas menores que o ensino médio.
+
+  - id: esc_alunos_escola
+    name: Matrículas por escola
+    dimension: educacao
+    unit: mat_escola
+    nature: derivado
+    value_kind: razao
+    decimals: 0
+    formula: "esc_matriculas / esc_escolas"
+    dataset: atlas_derivados
+    methodology: educacao_inep
+
+  - id: fin_educacao_aluno
+    name: Despesa municipal com educação por matrícula da rede municipal
+    short_name: Educação por aluno da rede municipal
+    dimension: educacao
+    unit: brl_matricula
+    nature: derivado
+    value_kind: nominal
+    levels: [MUN]
+    formula: "fin_despesa_educacao / esc_mat_municipal"
+    dataset: atlas_derivados
+    methodology: educacao_inep
+    limitations: Cruza duas fontes (Tesouro e INEP). A despesa é toda a função Educação da prefeitura, inclusive transporte e merenda; não é o valor por aluno do Fundeb.
+
+  # ---------------- Educação básica: rendimento e distorção idade-série (INEP) ----------------
+
+  - id: edu_aprovacao_fund
+    name: Taxa de aprovação — ensino fundamental
+    short_name: Aprovação (fundamental)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+
+  - id: edu_reprovacao_fund
+    name: Taxa de reprovação — ensino fundamental
+    short_name: Reprovação (fundamental)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+
+  - id: edu_abandono_fund
+    name: Taxa de abandono — ensino fundamental
+    short_name: Abandono (fundamental)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+
+  - id: edu_aprovacao_medio
+    name: Taxa de aprovação — ensino médio
+    short_name: Aprovação (médio)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+
+  - id: edu_reprovacao_medio
+    name: Taxa de reprovação — ensino médio
+    short_name: Reprovação (médio)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+
+  - id: edu_abandono_medio
+    name: Taxa de abandono — ensino médio
+    short_name: Abandono (médio)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+
+  - id: edu_distorcao_fund
+    name: Distorção idade-série — ensino fundamental
+    short_name: Distorção idade-série (fundamental)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+    description: Percentual de alunos com dois anos ou mais de atraso em relação à idade esperada para a série.
+
+  - id: edu_distorcao_medio
+    name: Distorção idade-série — ensino médio
+    short_name: Distorção idade-série (médio)
+    dimension: educacao
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [MUN]
+    dataset: inep_indicadores
+    methodology: educacao_inep
+    description: Percentual de alunos com dois anos ou mais de atraso em relação à idade esperada para a série.
+
   # ---------------- Planejados (sem dados — exibidos como tal) ----------------
   - id: irpf_bens_direitos
     name: Bens e direitos declarados ao IRPF

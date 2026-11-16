@@ -253,11 +253,29 @@ datasets:
     name: RAIS e Novo CAGED
     access: arquivo
     status: planejado
-  - id: inep_educacao
+  - id: inep_censo_escolar
     source: inep
-    name: Censo Escolar, IDEB e indicadores educacionais
+    name: Censo Escolar — microdados da educação básica
+    endpoint: https://download.inep.gov.br/dados_abertos/
     access: arquivo
-    status: planejado
+    status: disponivel
+    notes: >
+      Um arquivo por ano com uma linha por escola (matrículas, turmas, dependência administrativa). O Atlas soma
+      as escolas em atividade por município, de 2007 em diante.
+  - id: inep_ideb
+    source: inep
+    name: IDEB — resultados por município
+    endpoint: https://download.inep.gov.br/ideb/resultados/
+    access: arquivo
+    status: disponivel
+    notes: Planilhas da edição mais recente, que trazem a série bienal desde 2005. Usa-se a rede pública.
+  - id: inep_indicadores
+    source: inep
+    name: Indicadores educacionais — rendimento e distorção idade-série
+    endpoint: https://download.inep.gov.br/informacoes_estatisticas/indicadores_educacionais/
+    access: arquivo
+    status: disponivel
+    notes: Uma planilha por ano e por indicador, por município, localização e rede.
   - id: datasus_tabnet
     source: datasus
     name: Indicadores de saúde (SIM, SINASC, CNES)

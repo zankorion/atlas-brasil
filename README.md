@@ -16,6 +16,7 @@ rastreáveis. Dado ausente é mostrado como ausente — nunca como zero. Nada é
 | Agropecuária | Valor da produção e área colhida das lavouras, com soja, milho, cana e café (PAM, 1995+); rebanho bovino, leite e valor da produção animal (PPM, 1995+) |
 | Trabalho e renda | Unidades locais, pessoal ocupado, assalariados, massa salarial e salário médio por município (CEMPRE, 2006+); desocupação, Gini e renda domiciliar per capita por UF (PNAD Contínua, 2012+) |
 | Finanças municipais | Receita total, corrente e tributária, IPTU, ISS, ITBI, FPM e transferências; despesa total, com pessoal, investimentos, saúde e educação; por habitante e em proporções (SICONFI/Tesouro, 2014+, só por município) |
+| Educação | Matrículas por etapa e rede, escolas e turmas (Censo Escolar, 2007+); IDEB da rede pública (bienal, 2005+); aprovação, reprovação, abandono (2013+) e distorção idade-série (2011+); anos de estudo, nível de instrução e frequência escolar (Censo 2022); despesa municipal por aluno |
 | Educação e saneamento | Taxa de alfabetização e domicílios com água por rede, esgotamento por rede e lixo coletado (Censo 2022) |
 | Sistema financeiro territorial | Crédito (total, empréstimos, financiamentos, rural, imobiliário), depósitos (à vista, poupança, a prazo), agências — ESTBAN, posição de dezembro, **1994–2025**; ICR, crédito e depósitos per capita e sobre o PIB |
 | Cooperativas de crédito | Postos de atendimento por município (cadastro do BCB, 2016–2025) e carteira de crédito por UF do tomador, com a participação das cooperativas (SCR.data, 2012–2025) |
@@ -36,7 +37,7 @@ atlas-brasil/
 ├── backend/                 Python 3.12+ · FastAPI · SQLAlchemy · Polars
 │   ├── atlas/
 │   │   ├── catalog/         catálogos versionados em YAML: fontes, bases, unidades, metodologias, indicadores
-│   │   ├── connectors/      clientes das fontes oficiais (IBGE Localidades/Malhas/SIDRA/Biblioteca; BCB SGS, ESTBAN, postos, SCR.data e Pix; Tesouro SICONFI; Banco Mundial, preço do ouro)
+│   │   ├── connectors/      clientes das fontes oficiais (IBGE Localidades/Malhas/SIDRA/Biblioteca; BCB SGS, ESTBAN, postos, SCR.data e Pix; Tesouro SICONFI; INEP Censo Escolar, IDEB e indicadores; Banco Mundial, preço do ouro)
 │   │   ├── pipelines/       cargas: territórios, emancipações, PIB, população, domicílios, censo agro, ESTBAN, cooperativas, SCR, SGS, agregação
 │   │   ├── stats/           motor de fórmulas (unidades, ausências, deflacionamento) e estatísticas
 │   │   ├── api/             rotas: catálogo, dados (mapa, séries, perfis, exportação) e laboratório
@@ -44,7 +45,7 @@ atlas-brasil/
 │   │   ├── store.py         gravação versionada de observações + registro de cargas
 │   │   └── cli.py           migrate · seed · ingest · status
 │   ├── migrations/          Alembic (0001 esquema, 0002 geometria PostGIS)
-│   └── tests/               pytest (54 testes)
+│   └── tests/               pytest (60 testes)
 ├── frontend/                Next.js 16 · React 19 · TypeScript · Tailwind 4 · MapLibre GL · ECharts
 │   └── src/{app,views,components,lib}
 ├── data/                    (não versionado) banco SQLite local, cache bruto das fontes, malhas
@@ -119,6 +120,10 @@ python -m atlas.cli ingest scr              # carteira de crédito por UF e tipo
 python -m atlas.cli ingest ouro             # preço internacional do ouro (Banco Mundial), para valores em ouro
 python -m atlas.cli ingest pix              # Pix por município: totais anuais (2021+)
 python -m atlas.cli ingest siconfi          # finanças municipais (DCA 2014+); horas de carga, retomável
+python -m atlas.cli ingest censo_escolar    # matrículas, escolas e turmas por município (INEP, 2007+)
+python -m atlas.cli ingest ideb             # IDEB da rede pública por município (2005+, bienal)
+python -m atlas.cli ingest rendimento       # aprovação, reprovação e abandono (INEP, 2013+)
+python -m atlas.cli ingest distorcao        # distorção idade-série (INEP, 2011+)
 python -m atlas.cli ingest agregacao        # somas para regiões imediatas e intermediárias
 python -m atlas.cli status                  # contagens por indicador e últimas cargas
 ```
@@ -164,6 +169,9 @@ docker compose exec api python -m atlas.cli ingest all
 - **CEMPRE**: troca de tabela em 2022 (salto de 55 para 63 milhões de pessoas ocupadas); cobre só organizações formais.
 - **Pix**: valores anuais de 2021 a 2025 (soma de 12 meses), por município do cadastro do pagador ou do recebedor, não pelo local da
   compra. Mede pagamentos brutos, não renda. Os totais não foram conferidos com o total nacional divulgado pelo BCB.
+- **Educação (INEP)**: o Censo Escolar conta matrículas, não pessoas, e no município da escola, não no de residência.
+  IDEB, rendimento e distorção idade-série estão só por município; o IDEB é o da rede pública. As taxas de 2020 e 2021
+  refletem a aprovação automática da pandemia. Censo Escolar de 1995 a 2006 ainda não integrado (outro questionário).
 - **Finanças municipais (SICONFI)**: valores declarados pelas prefeituras, sem auditoria, com erros de classificação e declarações
   incompletas. Só por município (nem todos entregam todo ano, então não há totais de UF ou do país). A API responde um município por
   consulta: a série completa leva horas, mas a carga retoma de onde parou.
@@ -191,7 +199,7 @@ docker compose exec api python -m atlas.cli ingest all
 ## Próximos passos (roadmap)
 
 1. Série mensal completa do ESTBAN; conferência manual das origens das emancipações. (Pix por município: feito.)
-2. Emprego formal (RAIS/CAGED) e saúde (DATASUS). (Finanças municipais do SICONFI: feito.)
+2. Emprego formal (RAIS/CAGED) e saúde (DATASUS). (Finanças municipais do SICONFI e educação básica do INEP: feito.)
 3. Dimensão eleitoral (TSE) com documentação de mudanças partidárias.
 4. Áreas mínimas comparáveis.
 5. Modelos em painel e autocorrelação espacial (Moran) no laboratório.
