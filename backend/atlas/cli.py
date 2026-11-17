@@ -19,7 +19,7 @@ log = get_logger("cli")
 BACKEND = Path(__file__).resolve().parents[1]
 
 PIPELINES = ["territorios", "emancipacoes", "sgs", "populacao", "sidra", "domicilios", "censo_agro", "estban",
-             "cooperativas", "scr", "pix", "siconfi", "ouro", "ideb", "censo_escolar", "rendimento", "distorcao", "agregacao"]
+             "cooperativas", "scr", "pix", "siconfi", "ouro", "ideb", "censo_escolar", "rendimento", "distorcao", "adh", "agregacao"]
 
 
 def migrate() -> None:
@@ -40,7 +40,7 @@ def seed() -> None:
 
 
 def ingest(name: str, args) -> None:
-    from .pipelines import aggregate, bcb, cooperativas, emancipacoes, inep, pix, siconfi, sidra, territories
+    from .pipelines import aggregate, bcb, cooperativas, emancipacoes, inep, ipea, pix, siconfi, sidra, territories
 
     refresh = args.refresh
     if name == "territorios":
@@ -63,6 +63,8 @@ def ingest(name: str, args) -> None:
         inep.run_rendimento(start=args.inicio, end=args.fim, refresh=refresh)
     elif name == "distorcao":
         inep.run_distorcao(start=args.inicio, end=args.fim, refresh=refresh)
+    elif name == "adh":
+        ipea.run_adh(refresh=refresh)
     elif name == "ouro":
         bcb.run_ouro(refresh=True)
     elif name == "sgs":

@@ -6,6 +6,7 @@ dimensions:
   - {id: economia, name: Economia produtiva, status: mvp}
   - {id: trabalho, name: Trabalho e renda, status: parcial}
   - {id: educacao, name: Educação, status: parcial}
+  - {id: desenvolvimento, name: Desenvolvimento humano e desigualdade, status: parcial}
   - {id: saude, name: Saúde, status: planejado}
   - {id: habitacao, name: Habitação e infraestrutura, status: parcial}
   - {id: financas_publicas, name: Estado e finanças públicas, status: parcial}
@@ -2618,6 +2619,158 @@ indicators:
     dataset: inep_indicadores
     methodology: educacao_inep
     description: Percentual de alunos com dois anos ou mais de atraso em relação à idade esperada para a série.
+
+  # ---------------- Desenvolvimento humano e desigualdade (Atlas DH: PNUD, Ipea e FJP) ----------------
+
+  - id: idhm
+    name: Índice de Desenvolvimento Humano Municipal (IDHM)
+    short_name: IDHM
+    dimension: desenvolvimento
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 3
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Média geométrica das dimensões longevidade, educação e renda, de 0 a 1. Faixas do PNUD — muito baixo (até 0,499), baixo (0,500 a 0,599), médio (0,600 a 0,699), alto (0,700 a 0,799) e muito alto (0,800 ou mais).
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: idhm_educacao
+    name: IDHM — dimensão educação
+    short_name: IDHM educação
+    dimension: desenvolvimento
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 3
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Combina a escolaridade da população adulta com o fluxo escolar da população jovem.
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: idhm_longevidade
+    name: IDHM — dimensão longevidade
+    short_name: IDHM longevidade
+    dimension: desenvolvimento
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 3
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Calculado a partir da esperança de vida ao nascer.
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: idhm_renda
+    name: IDHM — dimensão renda
+    short_name: IDHM renda
+    dimension: desenvolvimento
+    unit: indice
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 3
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Calculado a partir da renda per capita média do município.
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: gini_censo
+    name: Índice de Gini da renda domiciliar per capita (Censos)
+    short_name: Gini da renda (municipal)
+    dimension: desenvolvimento
+    unit: razao
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 3
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Desigualdade da renda domiciliar per capita entre as pessoas do território — 0 é igualdade total e 1, concentração total.
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado. Não é comparável ao Gini anual da PNAD Contínua (outra pesquisa e outro conceito de renda).
+
+  - id: esperanca_vida
+    name: Esperança de vida ao nascer
+    short_name: Esperança de vida
+    dimension: desenvolvimento
+    unit: anos
+    nature: observado
+    value_kind: indice
+    stock_flow: na
+    decimals: 1
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Número médio de anos que uma pessoa nascida no ano viveria, mantidos os padrões de mortalidade do período.
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: renda_pc_censo
+    name: Renda domiciliar per capita média (Censos)
+    short_name: Renda per capita (Censos)
+    dimension: desenvolvimento
+    unit: brl
+    nature: observado
+    value_kind: real
+    stock_flow: na
+    decimals: 0
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Renda mensal por pessoa, em reais de agosto de 2010 (valores de 1991 e 2000 já corrigidos pela fonte).
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado. Já está a preços de 2010; as opções de moeda do Atlas não se aplicam.
+
+  - id: pobreza_extrema
+    name: Proporção de pessoas extremamente pobres
+    short_name: "% extremamente pobres"
+    dimension: desenvolvimento
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Pessoas com renda domiciliar per capita de até R$ 70 mensais (reais de agosto de 2010).
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: pobreza
+    name: Proporção de pessoas pobres
+    short_name: "% pobres"
+    dimension: desenvolvimento
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Pessoas com renda domiciliar per capita de até R$ 140 mensais (reais de agosto de 2010).
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
+
+  - id: renda_10_ricos
+    name: Parcela da renda apropriada pelos 10% mais ricos
+    short_name: Renda dos 10% mais ricos
+    dimension: desenvolvimento
+    unit: pct
+    nature: observado
+    value_kind: taxa
+    stock_flow: na
+    decimals: 1
+    levels: [BR, UF, MUN]
+    dataset: ipea_adh
+    methodology: adh
+    description: Percentual da renda total do território que fica com o décimo de maior renda domiciliar per capita.
+    limitations: Só nos anos de Censo (1991, 2000 e 2010); o cálculo com o Censo 2022 ainda não foi publicado.
 
   # ---------------- Planejados (sem dados — exibidos como tal) ----------------
   - id: irpf_bens_direitos

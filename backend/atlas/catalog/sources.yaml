@@ -302,6 +302,15 @@ datasets:
     name: Comex Stat — exportações e importações por município
     access: arquivo
     status: planejado
+  - id: ipea_adh
+    source: ipea
+    name: Atlas do Desenvolvimento Humano no Brasil (PNUD, Ipea e FJP), via Ipeadata
+    endpoint: http://www.ipeadata.gov.br/api/odata4
+    access: api
+    status: disponivel
+    notes: >
+      IDHM e suas dimensões, Gini, esperança de vida, renda per capita e pobreza, calculados pelos autores a
+      partir dos Censos de 1991, 2000 e 2010. Referência: www.atlasbrasil.org.br.
   - id: ipeadata
     source: ipea
     name: IpeaData

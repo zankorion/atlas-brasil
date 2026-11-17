@@ -420,3 +420,22 @@ methodologies:
 
       **Despesa por aluno da rede municipal.** Cruza a despesa na função Educação declarada pela prefeitura
       (SICONFI) com as matrículas da rede municipal. Não é o valor aluno/ano do Fundeb.
+  - id: adh
+    title: IDHM, Gini e renda (Atlas do Desenvolvimento Humano)
+    body: |
+      Fonte: Atlas do Desenvolvimento Humano no Brasil, elaborado por PNUD, Ipea e Fundação João Pinheiro a
+      partir dos microdados dos Censos Demográficos do IBGE. Os valores são lidos do Ipeadata, que os
+      republica por município, UF e Brasil, e entram no Atlas exatamente como publicados.
+
+      - **Anos**: 1991, 2000 e 2010. O IDHM e o Gini municipais dependem dos microdados do Censo; os de 2022
+        ainda não foram publicados pelos autores. Não existe série anual por município.
+      - **IDHM**: média geométrica de três dimensões (longevidade, educação e renda), de 0 a 1. Os três
+        anos foram recalculados pelos autores com a mesma metodologia e na malha municipal de 2010, por
+        isso são comparáveis entre si. Não é comparável ao IDH de países, que usa outros indicadores.
+      - **Gini**: desigualdade da renda domiciliar per capita entre as pessoas que vivem em domicílios
+        particulares permanentes. É diferente do Gini anual da PNAD Contínua (disponível só para Brasil,
+        regiões e UFs) e do Gini fundiário, que mede a concentração da terra.
+      - **Renda e pobreza**: em reais de agosto de 2010; as linhas de pobreza (R$ 140) e de extrema
+        pobreza (R$ 70) são as adotadas pelo Atlas do Desenvolvimento Humano.
+      - **Municípios criados depois de 2010** não têm valor: ficam ausentes, nunca zero. O valor do Brasil
+        e das UFs é o calculado pelos autores para o conjunto da população, não a média dos municípios.
